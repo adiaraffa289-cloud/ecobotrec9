@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <script>
+    (function() {
+        try {
+            var sess    = sessionStorage.getItem("ecobottle_logged_in");
+            var locUser = localStorage.getItem("ecobottle_user");
+            var locCur  = localStorage.getItem("ecobottle_current_user");
+
+            if (!sess && !locUser && !locCur) {
+                window.location.replace("login.html");
+                return;
+            }
+
+            if (!sess) {
+                sessionStorage.setItem("ecobottle_logged_in", "true");
+            }
+
+            if (!locCur) {
+                var u = locUser ? JSON.parse(locUser) : { name: "Pengguna", uid: "GUEST" };
+                localStorage.setItem("ecobottle_current_user", JSON.stringify({
+                    name: u.name || "Pengguna",
+                    nisn: u.uid  || "GUEST",
+                    points: 0,
+                    bottles: 0,
+                    ebooks: 0,
+                    lastActive: new Date().toISOString()
+                }));
+            }
+        } catch (e) {
+            window.location.replace("login.html");
+        }
+    })();
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leaderboard - EcoBotRec</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="responsive.css">
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+
+<style>
+        /* ========== UNIFIED HEADER & MOBILE MENU ========== */
+        :root {
+            --primary-green: #22c55e;
+            --dark-green: #15803d;
+            --light-green: #f0fdf4;
+            --text-main: #1a1a2e;
+            --text-gray: #64748b;
+            --white: #ffffff;
+            --transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            --grad-nav: linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(240,253,244,0.98) 100%);
+            --grad-footer: linear-gradient(135deg, #166534 0%, #14532d 50%, #0f3b21 100%);
+        }
+        .ecob-header {
+            background: var(--grad-nav);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(34,197,94,0.2);
+            position: fixed;
+            top: 0; width: 100%;
+            z-index: 1000;
+            box-shadow: 0 4px 20px rgba(34,197,94,0.1);
+            transition: var(--transition);
+        }
+        .ecob-header .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        .ecob-header-content {
+            height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .ecob-logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            font-weight: 800;
+            font-size: 1.5rem;
+            background: linear-gradient(135deg, var(--dark-green), var(--primary-green));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .ecob-logo img {
+            width: 42px; height: 42px;
+            border-radius: 12px;
+            object-fit: cover;
+            border: 2px solid rgba(34,197,94,0.3);
+            box-shadow: 0 2px 8px rgba(34,197,94,0.2);
+            flex-shrink: 0;
+        }
+        .ecob-nav {
+            display: flex;
+            gap: 32px;
+        }
+        .ecob-nav-link {
+            text-decoration: none;
+            color: var(--text-main);
+            font-weight: 500;
+            font-size: 0.95rem;
+            transition: var(--transition);
+            position: relative;
+            font-family: 'Poppins', sans-serif;
+        }
+        .ecob-nav-link::after {
+            content: '';
+            position: absolute;
+            bottom: -5px; left: 0;
+            width: 0; height: 2px;
+            background: var(--primary-green);
+            transition: var(--transition);
+        }
+        .ecob-nav-link:hover::after,
+        .ecob-nav-link.active::after { width: 100%; }
+        .ecob-nav-link:hover,
+        .ecob-nav-link.active { color: var(--primary-green); }
+
+        /* Hamburger */
+        .ecob-hamburger {
+            display: none;
+            flex-direction: column;
+            gap: 5px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px;
+            z-index: 1101;
+        }
+        .ecob-hamburger span {
+            display: block;
+            width: 25px; height: 3px;
+            background: #334155;
+            border-radius: 3px;
+            transition: all 0.3s ease;
+        }
+        .ecob-hamburger.active span:nth-child(1) { transform: translateY(8px) rotate(45deg); }
+        .ecob-hamburger.active span:nth-child(2) { opacity: 0; transform: scaleX(0); }
+        .ecob-hamburger.active span:nth-child(3) { transform: translateY(-8px) rotate(-45deg); }
+
+        /* Mobile Menu */
+        .ecob-mobile-menu {
+            position: fixed;
+            top: 0; right: -100%;
+            width: 100%; height: 100%;
+            background: #f8fafc;
+            transition: right 0.35s cubic-bezier(0.4,0,0.2,1);
+            z-index: 1100;
+            overflow-y: auto;
+        }
+        .ecob-mobile-menu.open { right: 0; }
+        .ecob-mobile-menu-content {
+            padding: 100px 20px 40px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .ecob-mobile-link {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            text-decoration: none;
+            color: #334155;
+            font-weight: 500;
+            font-size: 1rem;
+            padding: 16px 20px;
+            border-radius: 16px;
+            background: #ffffff;
+            border: 1px solid #f1f5f9;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+            transition: all 0.25s ease;
+            font-family: 'Poppins', sans-serif;
+        }
+        .ecob-mobile-link:hover {
+            background: #f0fdf4;
+            border-color: rgba(34,197,94,0.2);
+            color: #22c55e;
+        }
+        .ecob-mobile-link.active {
+            background: #22c55e;
+            border-color: #22c55e;
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(34,197,94,0.3);
+        }
+        .ecob-mobile-link svg { width: 24px; height: 24px; flex-shrink: 0; }
+        .ecob-mobile-link:not(.active) svg path,
+        .ecob-mobile-link:not(.active) svg circle,
+        .ecob-mobile-link:not(.active) svg rect { stroke: #64748b; }
+        .ecob-mobile-link.active svg path,
+        .ecob-mobile-link.active svg circle,
+        .ecob-mobile-link.active svg rect { stroke: #ffffff; }
+
+        /* Footer */
+        .ecob-footer {
+            background: var(--grad-footer);
+            padding: 80px 0 40px;
+            color: rgba(255,255,255,0.85);
+            border-top: 1px solid rgba(255,255,255,0.1);
+            margin-top: 60px;
+            font-family: 'Poppins', sans-serif;
+        }
+        .ecob-footer .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        .ecob-footer-content {
+            display: grid;
+            grid-template-columns: 1.5fr 1fr 1fr;
+            gap: 60px;
+            margin-bottom: 60px;
+        }
+        .ecob-footer-logo {
+            color: var(--white);
+            font-size: 1.6rem;
+            font-weight: 800;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .ecob-footer-logo img {
+            width: 42px; height: 42px;
+            border-radius: 12px;
+            object-fit: cover;
+            border: 2px solid rgba(255,255,255,0.2);
+        }
+        .ecob-footer-logo span {
+            background: linear-gradient(135deg, #bbf7d0, #86efac);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .ecob-footer-desc { font-size: 0.9rem; line-height: 1.7; margin-bottom: 24px; }
+        .ecob-footer-social { display: flex; gap: 12px; }
+        .ecob-social-link {
+            width: 40px; height: 40px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            transition: 0.3s;
+            text-decoration: none; color: white;
+        }
+        .ecob-social-link:hover { background: var(--primary-green); transform: translateY(-3px); }
+        .ecob-footer-title {
+            color: var(--white);
+            font-weight: 700;
+            margin-bottom: 24px;
+            font-size: 1.1rem;
+            position: relative;
+            display: inline-block;
+        }
+        .ecob-footer-title::after {
+            content: '';
+            position: absolute;
+            bottom: -8px; left: 0;
+            width: 40px; height: 3px;
+            background: var(--primary-green);
+            border-radius: 3px;
+        }
+        .ecob-footer-links { list-style: none; }
+        .ecob-footer-links li { margin-bottom: 12px; }
+        .ecob-footer-links a {
+            color: rgba(255,255,255,0.8);
+            text-decoration: none;
+            transition: 0.3s;
+            display: flex; align-items: center; gap: 8px;
+            font-size: 0.9rem;
+        }
+        .ecob-footer-links a:hover { color: var(--primary-green); padding-left: 6px; }
+        .ecob-footer-contact { list-style: none; }
+        .ecob-footer-contact li {
+            margin-bottom: 14px;
+            display: flex; align-items: center; gap: 10px;
+            font-size: 0.9rem;
+        }
+        .ecob-footer-bottom {
+            text-align: center;
+            padding-top: 30px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            font-size: 0.85rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .ecob-footer-bottom-links { display: flex; gap: 20px; }
+        .ecob-footer-bottom-links a {
+            color: rgba(255,255,255,0.6);
+            text-decoration: none;
+            font-size: 0.82rem;
+            transition: 0.3s;
+        }
+        .ecob-footer-bottom-links a:hover { color: var(--primary-green); }
+
+        @media (max-width: 992px) {
+            .ecob-nav { display: none; }
+            .ecob-hamburger { display: flex; }
+            .ecob-footer-content { grid-template-columns: 1fr; gap: 40px; }
+            .ecob-footer-bottom { flex-direction: column; text-align: center; }
+        }
+        @media (max-width: 576px) {
+            .ecob-logo { font-size: 1.2rem; }
+            .ecob-logo img { width: 36px; height: 36px; }
+        }
+    </style>
+
+    <style>
+        /* ========================================
+           MOBILE FIX - keep original "EcoBOTREC" title
+           and ensure header is fully visible
+           ======================================== */
+        html, body {
+            max-width: 100vw;
+            overflow-x: hidden;
+        }
+
+        body {
+            padding-top: 80px;
+        }
+
+        .ecob-header {
+            left: 0;
+            right: 0;
+        }
+
+        .ecob-header .container {
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .ecob-header-content {
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding-top: 70px;
+            }
+            .ecob-header .container,
+            .ecob-footer .container {
+                padding: 0 14px;
+                max-width: 100%;
+            }
+            .ecob-header-content {
+                height: 70px;
+                gap: 10px;
+            }
+            .ecob-logo {
+                min-width: 0;
+                flex-shrink: 1;
+                overflow: hidden;
+            }
+            .ecob-hamburger {
+                flex-shrink: 0;
+            }
+        }
+
+        @media (max-width: 420px) {
+            body {
+                padding-top: 64px;
+            }
+            .ecob-header-content {
+                height: 64px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- ===== UNIFIED HEADER ===== -->
+    <header class="ecob-header">
+        <div class="container">
+            <div class="ecob-header-content">
+                <a href="menuutama.html" class="ecob-logo">
+                    <svg width="38" height="38" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;">
+                        <rect width="60" height="60" rx="14" fill="#22c55e"/>
+                        <path d="M30 8L36 18H24L30 8Z" fill="white"/>
+                        <rect x="21" y="18" width="18" height="28" rx="3" fill="white" opacity="0.9"/>
+                        <path d="M26 22H34V27H26V22Z" fill="#22c55e" opacity="0.5"/>
+                        <circle cx="30" cy="34" r="3" fill="#22c55e" opacity="0.7"/>
+                    </svg>
+                    <span>EcoBotRec</span>
+                </a>
+                <nav class="ecob-nav">
+                    <a href="index.html" class="ecob-nav-link">Beranda</a>
+                    <a href="about.html" class="ecob-nav-link">Tentang</a>
+                    <a href="leaderboard.html" class="ecob-nav-link active">Leaderboard</a>
+                    <a href="EBOOK.html" class="ecob-nav-link">Koleksi Ebook</a>
+                    <a href="voucher.html" class="ecob-nav-link">Voucher</a>
+                    <a href="account.html" class="ecob-nav-link">Akun</a>
+                </nav>
+                <button class="ecob-hamburger" id="ecobHamburger">
+                    <span></span><span></span><span></span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ===== MOBILE MENU ===== -->
+    <div class="ecob-mobile-menu" id="ecobMobileMenu">
+        <div class="ecob-mobile-menu-content">
+        <a href="index.html" class="ecob-mobile-link">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M3 9L12 2L21 9V20C21 20.5304 20.7893 21.0391 20.4142 21.4142C20.0391 21.7893 19.5304 22 19 22H5C4.46957 22 3.96086 21.7893 3.58579 21.4142C3.21071 21.0391 3 20.5304 3 20V9Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Beranda</span>
+        </a>
+        <a href="about.html" class="ecob-mobile-link">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><path d="M12 16V12M12 8H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <span>Tentang</span>
+        </a>
+        <a href="leaderboard.html" class="ecob-mobile-link active">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Leaderboard</span>
+        </a>
+        <a href="EBOOK.html" class="ecob-mobile-link">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M4 19.5C4 18.837 4.26339 18.2011 4.73223 17.7322C5.20107 17.2634 5.83696 17 6.5 17H20" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M6.5 2H20V22H6.5C5.83696 22 5.20107 21.7366 4.73223 21.2678C4.26339 20.7989 4 20.163 4 19.5V4.5C4 3.83696 4.26339 3.20107 4.73223 2.73223C5.20107 2.26339 5.83696 2 6.5 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Koleksi Ebook</span>
+        </a>
+        <a href="voucher.html" class="ecob-mobile-link">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="6" width="20" height="12" rx="3" stroke="currentColor" stroke-width="2"/><path d="M16 6V5C16 3.89543 15.1046 3 14 3H10C8.89543 3 8 3.89543 8 5V6" stroke="currentColor" stroke-width="2"/><path d="M16 12H16.01M8 12H8.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            <span>Voucher</span>
+        </a>
+        <a href="account.html" class="ecob-mobile-link">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M20 21V19C20 17.9391 19.5786 16.9217 18.8284 16.1716C18.0783 15.4214 17.0609 15 16 15H8C6.93913 15 5.92172 15.4214 5.17157 16.1716C4.42143 16.9217 4 17.9391 4 19V21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Akun</span>
+        </a>
+        </div>
+    </div>
+
+    <!-- Header -->
+    
+    
+    <!-- Mobile Menu -->
+    
+    
+    <!-- Page Header -->
+    <section class="page-header">
+        <div class="container">
+            <h1 class="page-title">Leaderboard</h1>
+            <p class="page-subtitle">Kompetisi daur ulang dan peringkat pengguna EcoBotRec</p>
+        </div>
+    </section>
+    
+    <!-- Leaderboard Section -->
+    <section class="leaderboard-section">
+        <div class="container">
+            <div class="leaderboard-header">
+                <div class="leaderboard-info">
+                    <h2>Peringkat Pengguna</h2>
+                    <p>Setiap botol bernilai 5 poin • Update real-time</p>
+                </div>
+                <div class="leaderboard-stats">
+                    <div class="stat-box">
+                        <div class="stat-icon">
+                            <svg width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M15 5L18 15L28 17L20 25L22 35L15 30L8 35L10 25L2 17L12 15L15 5Z" fill="#FFD700"/>
+                            </svg>
+                        </div>
+                        <div class="stat-data">
+                            <div class="stat-value">34</div>
+                            <div class="stat-label">Pengguna Aktif</div>
+                        </div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-icon">
+                            <svg width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M15 2.5L17.5 10H10L15 2.5Z" fill="#22c55e"/>
+                                <rect x="10" y="10" width="10" height="15" rx="2" fill="#22c55e" opacity="0.8"/>
+                            </svg>
+                        </div>
+                        <div class="stat-data">
+                            <div class="stat-value">15,420</div>
+                            <div class="stat-label">Botol Terdaur</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Top 3 Podium - Dynamic -->
+            <div class="podium-container" id="podiumContainer">
+                <div class="podium-item second-place" id="podium2">
+                    <div class="podium-avatar">
+                        <div class="avatar-circle"><span id="p2initial">-</span></div>
+                        <div class="podium-medal silver"><span>2</span></div>
+                    </div>
+                    <div class="podium-info">
+                        <h3 id="p2name">-</h3>
+                        <p class="podium-nisn" id="p2uid">-</p>
+                        <div class="podium-stats">
+                            <div class="podium-stat"><span class="stat-number" id="p2poin">0</span><span class="stat-text">Poin</span></div>
+                            <div class="podium-stat"><span class="stat-number" id="p2botol">0</span><span class="stat-text">Botol</span></div>
+                        </div>
+                    </div>
+                    <div class="podium-rank rank-2"><div class="rank-height"></div></div>
+                </div>
+                <div class="podium-item first-place" id="podium1">
+                    <div class="podium-trophy">
+                        <svg width="50" height="50" viewBox="0 0 50 50" fill="none"><path d="M25 5L30 20L45 22L35 32L37.5 47L25 40L12.5 47L15 32L5 22L20 20L25 5Z" fill="#FFD700"/></svg>
+                    </div>
+                    <div class="podium-avatar">
+                        <div class="avatar-circle"><span id="p1initial">-</span></div>
+                        <div class="podium-medal gold"><span>1</span></div>
+                    </div>
+                    <div class="podium-info">
+                        <h3 id="p1name">-</h3>
+                        <p class="podium-nisn" id="p1uid">-</p>
+                        <div class="podium-stats">
+                            <div class="podium-stat"><span class="stat-number" id="p1poin">0</span><span class="stat-text">Poin</span></div>
+                            <div class="podium-stat"><span class="stat-number" id="p1botol">0</span><span class="stat-text">Botol</span></div>
+                        </div>
+                    </div>
+                    <div class="podium-rank rank-1"><div class="rank-height"></div></div>
+                </div>
+                <div class="podium-item third-place" id="podium3">
+                    <div class="podium-avatar">
+                        <div class="avatar-circle"><span id="p3initial">-</span></div>
+                        <div class="podium-medal bronze"><span>3</span></div>
+                    </div>
+                    <div class="podium-info">
+                        <h3 id="p3name">-</h3>
+                        <p class="podium-nisn" id="p3uid">-</p>
+                        <div class="podium-stats">
+                            <div class="podium-stat"><span class="stat-number" id="p3poin">0</span><span class="stat-text">Poin</span></div>
+                            <div class="podium-stat"><span class="stat-number" id="p3botol">0</span><span class="stat-text">Botol</span></div>
+                        </div>
+                    </div>
+                    <div class="podium-rank rank-3"><div class="rank-height"></div></div>
+                </div>
+            </div>
+            
+            <!-- Leaderboard Table -->
+            <div class="leaderboard-table-container">
+                <table class="leaderboard-table" id="leaderboardTable">
+                    <thead>
+                        <tr>
+                            <th>Peringkat</th>
+                            <th>Pengguna</th>
+                            <th>NISN</th>
+                            <th>Poin</th>
+                            <th>Botol</th>
+                            <th>Ebook Ditukar</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Data akan diisi oleh JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Your Rank -->
+            <div class="your-rank-card" id="yourRankCard">
+                <div class="your-rank-content">
+                    <div class="rank-badge">
+                        <span>Peringkat Anda</span>
+                    </div>
+                    <div class="rank-details">
+                        <div class="rank-position">
+                            <span class="rank-number">-</span>
+                            <span class="rank-label">Posisi</span>
+                        </div>
+                        <div class="rank-separator"></div>
+                        <div class="rank-stat">
+                            <span class="rank-value">0</span>
+                            <span class="rank-label">Poin</span>
+                        </div>
+                        <div class="rank-separator"></div>
+                        <div class="rank-stat">
+                            <span class="rank-value">0</span>
+                            <span class="rank-label">Botol</span>
+                        </div>
+                    </div>
+                    <a href="account.html" class="btn btn-primary">Lihat Profil</a>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    
+    <div class="notification-container"></div>
+    
+    <script src="script.js"></script>
+    <script>
+        // ======================= FIREBASE LEADERBOARD =======================
+        const lbFirebaseConfig = {
+            databaseURL: "https://ecobottle-463c3-default-rtdb.asia-southeast1.firebasedatabase.app"
+        };
+        if (!firebase.apps.length) {
+            firebase.initializeApp(lbFirebaseConfig);
+        }
+        const lbDb = firebase.database();
+        const COINS_PER_BOTTLE = 5;
+
+        const validUsers = [
+            { name: "Raffa", nisn: "0121997451", uid: "0174346A" },
+            { name: "Warren", nisn: "0128091655", uid: "F1F53F6A" },
+            { name: "Lodra", nisn: "0117048051", uid: "3108646A" },
+            { name: "Nazifa", nisn: "0117081155", uid: "9172486A" },
+            { name: "Damai", nisn: "0116361248", uid: "519F396A" },
+            { name: "Pak Heri", nisn: "H3R1GURU", uid: "F3B14B16" },
+            { name: "Resvan", nisn: "VEPANGANTENG", uid: "E0EDA65F" },
+            { name: "Afif", nisn: "0128553009", uid: "B1A14B6A" },
+            { name: "Dinda", nisn: "0116508528", uid: "E159396A" },
+            { name: "Zhafran", nisn: "3115978148", uid: "A1D0456A" },
+            { name: "Alaric", nisn: "0121754887", uid: "41A4486A " },
+            { name: "Ezzar", nisn: "0126158913", uid: "5FD45186" },
+            { name: "Sesya", nisn: "0116877380", uid: "E1CC346A" },
+            { name: "Callista", nisn: "0119539664", uid: "81A6576A" },
+            { name: "Fadhil", nisn: "3117389810", uid: "91B0566A" },
+            { name: "Arvin", nisn: "0123889416", uid: "6154396A" },
+            { name: "Darrel", nisn: "0117996928", uid: "7F895D86" },
+            { name: "Michel", nisn: "0128979076", uid: "51C0466A" },
+            { name: "Ananto", nisn: "0123933364", uid: "F182316A" },
+            { name: "Revandira", nisn: "0018881054", uid: "B155426A" },
+            { name: "Pak Mulyadi", nisn: "KEPALA SEKOLAH", uid: "61124C6A" },
+            { name: "Pak Prihatin", nisn: "GURU", uid: "A19D376A" },
+            { name: "Pak Yohanes", nisn: "GURU", uid: "0F7B5986" },
+            { name: "Pak Fahiq", nisn: "GURU", uid: "BF014A86" },
+            { name: "Bu Dwi", nisn: "Guru", uid: "E197366A" }
+            ];
+
+        // Get current logged in user from localStorage
+        let currentLbUser = null;
+        try {
+            const saved = localStorage.getItem('ecobottle_user');
+            if (saved) {
+                const { name, uid } = JSON.parse(saved);
+                currentLbUser = validUsers.find(u => u.name === name && u.uid === uid) || null;
+            }
+        } catch(e) {}
+
+        function renderPodium(sorted) {
+            const slots = [
+                { idx: 0, nameid: 'p1name', initid: 'p1initial', uidid: 'p1uid', poinid: 'p1poin', botolid: 'p1botol' },
+                { idx: 1, nameid: 'p2name', initid: 'p2initial', uidid: 'p2uid', poinid: 'p2poin', botolid: 'p2botol' },
+                { idx: 2, nameid: 'p3name', initid: 'p3initial', uidid: 'p3uid', poinid: 'p3poin', botolid: 'p3botol' }
+            ];
+            slots.forEach(s => {
+                const u = sorted[s.idx];
+                if (u) {
+                    document.getElementById(s.nameid).textContent = u.name;
+                    document.getElementById(s.initid).textContent = u.name.charAt(0).toUpperCase();
+                    document.getElementById(s.uidid).textContent = u.uid;
+                    document.getElementById(s.poinid).textContent = u.botol * COINS_PER_BOTTLE;
+                    document.getElementById(s.botolid).textContent = u.botol;
+                }
+            });
+        }
+
+        function renderTable(sorted) {
+            const tbody = document.querySelector('#leaderboardTable tbody');
+            if (!tbody) return;
+            tbody.innerHTML = sorted.map((u, i) => {
+                const isCurrentUser = currentLbUser && u.uid === currentLbUser.uid;
+                const medals = ['🥇', '🥈', '🥉'];
+                const rankDisplay = i < 3 ? `${medals[i]} ${i + 1}` : `#${i + 1}`;
+                return `<tr class="${isCurrentUser ? 'current-user-row' : ''}">
+                    <td><strong>${rankDisplay}</strong></td>
+                    <td><strong>${u.name}</strong>${isCurrentUser ? ' <span style="color:#22c55e;font-size:0.75rem;">(Kamu)</span>' : ''}</td>
+                    <td>${u.uid}</td>
+                    <td><strong style="color:#22c55e;">${u.botol * COINS_PER_BOTTLE}</strong></td>
+                    <td>${u.botol}</td>
+                    <td>${u.ebookCount}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        function renderYourRank(sorted) {
+            if (!currentLbUser) return;
+            const idx = sorted.findIndex(u => u.uid === currentLbUser.uid);
+            if (idx === -1) return;
+            const u = sorted[idx];
+            const card = document.getElementById('yourRankCard');
+            if (!card) return;
+            card.querySelector('.rank-number').textContent = `#${idx + 1}`;
+            const vals = card.querySelectorAll('.rank-value');
+            if (vals[0]) vals[0].textContent = u.botol * COINS_PER_BOTTLE;
+            if (vals[1]) vals[1].textContent = u.botol;
+        }
+
+        function updateTotalStats(sorted) {
+            const totalBotol = sorted.reduce((s, u) => s + u.botol, 0);
+            const el = document.querySelector('.stat-box:last-child .stat-value');
+            if (el) el.textContent = totalBotol.toLocaleString('id-ID');
+        }
+
+        // Real-time listener
+        lbDb.ref('users').on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (!data) return;
+
+            const userList = validUsers.map(vu => {
+                const fbData = data[vu.uid] || {};
+                const botol = parseInt(fbData.jumlah_botol) || parseInt(fbData.total_botol) || 0;
+                const ownedBooks = fbData.ownedBooks || {};
+                const ebookCount = Object.keys(ownedBooks).length;
+                return { ...vu, botol, ebookCount };
+            });
+
+            // Sort by botol descending
+            userList.sort((a, b) => b.botol - a.botol);
+
+            renderPodium(userList);
+            renderTable(userList);
+            renderYourRank(userList);
+            updateTotalStats(userList);
+        });
+    </script>
+
+
+
+
+    <!-- ===== UNIFIED FOOTER ===== -->
+    <footer class="ecob-footer">
+        <div class="container">
+            <div class="ecob-footer-content">
+                <div>
+                    <div class="ecob-footer-logo">
+                        <svg width="38" height="38" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;">
+                            <rect width="60" height="60" rx="14" fill="#22c55e"/>
+                            <path d="M30 8L36 18H24L30 8Z" fill="white"/>
+                            <rect x="21" y="18" width="18" height="28" rx="3" fill="white" opacity="0.9"/>
+                            <path d="M26 22H34V27H26V22Z" fill="#22c55e" opacity="0.5"/>
+                            <circle cx="30" cy="34" r="3" fill="#22c55e" opacity="0.7"/>
+                        </svg>
+                        <span>EcoBotRec</span>
+                    </div>
+                    <p class="ecob-footer-desc">Website EcoBotRec: Penukaran botol plastik anda menjadi sesuatu yang lebih berharga. Bersama kita jaga bumi untuk generasi mendatang.</p>
+                    <div class="ecob-footer-social">
+                        <a href="#" class="ecob-social-link" aria-label="Facebook">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M18 2H15C13.6739 2 12.4021 2.52678 11.4645 3.46447C10.5268 4.40215 10 5.67392 10 7V10H7V14H10V22H14V14H17L18 10H14V7C14 6.73478 14.1054 6.48043 14.2929 6.29289C14.4804 6.10536 14.7348 6 15 6H18V2Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </a>
+                        <a href="#" class="ecob-social-link" aria-label="Instagram">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="2" y="2" width="20" height="20" rx="5" stroke="white" stroke-width="2"/><circle cx="12" cy="12" r="4" stroke="white" stroke-width="2"/><circle cx="17.5" cy="6.5" r="1.5" fill="white"/></svg>
+                        </a>
+                        <a href="#" class="ecob-social-link" aria-label="Twitter">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M23 3C22.0424 3.67548 20.9821 4.19211 19.86 4.53C19.2577 3.83751 18.4573 3.34669 17.567 3.12393C16.6767 2.90116 15.7395 2.95718 14.8821 3.28445C14.0247 3.61173 13.2884 4.1944 12.773 4.95372C12.2575 5.71303 11.9877 6.61234 12 7.53V8.53C10.2426 8.57557 8.50127 8.18581 6.93101 7.39545C5.36074 6.60508 4.01032 5.43864 3 4C3 4 -1 13 8 17C5.94053 18.398 3.48716 19.0989 1 19C10 24 21 19 21 7.5C20.9991 7.22145 20.9723 6.94359 20.92 6.67C21.9406 5.66349 22.6608 4.39271 23 3Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </a>
+                    </div>
+                </div>
+                <div>
+                    <h3 class="ecob-footer-title">Navigasi</h3>
+                    <ul class="ecob-footer-links">
+                        <li><a href="menuutama.html">Beranda</a></li>
+                        <li><a href="about.html">Tentang Kami</a></li>
+                        <li><a href="leaderboard.html">Leaderboard</a></li>
+                        <li><a href="EBOOK.html">Koleksi Ebook</a></li>
+                        <li><a href="voucher.html">Voucher</a></li>
+                        <li><a href="account.html">Akun Saya</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h3 class="ecob-footer-title">Kontak</h3>
+                    <ul class="ecob-footer-contact">
+                        <li>
+                            <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M2.5 6.66667L10 11.6667L17.5 6.66667M3.33333 15H16.6667C17.5871 15 18.3333 14.2538 18.3333 13.3333V6.66667C18.3333 5.74619 17.5871 5 16.6667 5H3.33333C2.41286 5 1.66667 5.74619 1.66667 6.66667V13.3333C1.66667 14.2538 2.41286 15 3.33333 15Z" stroke="#22c55e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            <span>ecobottrecycle@gmail.com</span>
+                        </li>
+                        <li>
+                            <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M2.5 5.83333C2.5 14.1667 5.83333 17.5 14.1667 17.5C14.626 17.5 15 17.126 15 16.6667V14.3333C15 13.874 14.626 13.5 14.1667 13.5C13.7074 13.5 13.3333 13.126 13.3333 12.6667V12.5C13.3333 12.0407 13.7074 11.6667 14.1667 11.6667C14.626 11.6667 15 11.2927 15 10.8333V8.33333C15 7.87405 14.626 7.5 14.1667 7.5H2.5V5.83333Z" stroke="#22c55e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            <span>+62 812-3456-7890</span>
+                        </li>
+                        <li>
+                            <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M10 10.8333C11.3807 10.8333 12.5 9.71405 12.5 8.33333C12.5 6.95262 11.3807 5.83333 10 5.83333C8.61929 5.83333 7.5 6.95262 7.5 8.33333C7.5 9.71405 8.61929 10.8333 10 10.8333Z" stroke="#22c55e" stroke-width="1.5"/><path d="M10 1.66667C8.23189 1.66667 6.53619 2.36905 5.28595 3.61929C4.03571 4.86953 3.33333 6.56522 3.33333 8.33333C3.33333 10.5833 4.16667 12.0833 5.83333 14.1667L10 18.3333L14.1667 14.1667C15.8333 12.0833 16.6667 10.5833 16.6667 8.33333C16.6667 6.56522 15.9643 4.86953 14.714 3.61929C13.4638 2.36905 11.7681 1.66667 10 1.66667Z" stroke="#22c55e" stroke-width="1.5"/></svg>
+                            <span>Klaten, Jawa Tengah</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="ecob-footer-bottom">
+                <p>&copy; 2026 EcoBotRec. Menjaga Bumi Lebih Hijau.</p>
+                <div class="ecob-footer-bottom-links">
+                    <a href="#">Kebijakan Privasi</a>
+                    <a href="#">Syarat &amp; Ketentuan</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // ===== UNIFIED MOBILE MENU =====
+        (function() {
+            var btn = document.getElementById('ecobHamburger');
+            var menu = document.getElementById('ecobMobileMenu');
+            if (!btn || !menu) return;
+            btn.addEventListener('click', function() {
+                var open = menu.classList.contains('open');
+                if (open) {
+                    btn.classList.remove('active');
+                    menu.classList.remove('open');
+                    document.body.style.overflow = '';
+                } else {
+                    btn.classList.add('active');
+                    menu.classList.add('open');
+                    document.body.style.overflow = 'hidden';
+                }
+            });
+            document.querySelectorAll('.ecob-mobile-link').forEach(function(link) {
+                link.addEventListener('click', function() {
+                    btn.classList.remove('active');
+                    menu.classList.remove('open');
+                    document.body.style.overflow = '';
+                });
+            });
+        })();
+    </script>
+
+</body>
+</html>

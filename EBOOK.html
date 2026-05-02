@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Perpustakaan Ebook - EcoBotRec</title>
+    
+    <!-- AUTHENTICATION CHECK - FIXED -->
+    <script>
+    (function() {
+        // Cek apakah user sudah login (cek localStorage dari login.html)
+        var savedUser = localStorage.getItem('ecobottle_user');
+        if (!savedUser) {
+            window.location.replace('login.html');
+            return;
+        }
+        
+        // Pastikan sessionStorage juga terisi untuk konsistensi
+        if (!sessionStorage.getItem('ecobottle_logged_in')) {
+            sessionStorage.setItem('ecobottle_logged_in', 'true');
+        }
+    })();
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Perpustakaan Ebook - EcoBotRec</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #f8fafc 0%, #dcfce7 100%);
+            color: #1e293b;
+            line-height: 1.5;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* ========================================
+           ROOT VARIABLES & CORE STYLES
+           ======================================== */
+        :root {
+            --primary-green: #22c55e;
+            --dark-green: #15803d;
+            --light-green: #f0fdf4;
+            --soft-green: #bbf7d0;
+            --text-main: #1a1a2e;
+            --text-gray: #64748b;
+            --white: #ffffff;
+            --shadow-sm: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 20px 25px -5px rgb(0 0 0 / 0.1);
+            --transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            
+            --grad-bg: linear-gradient(135deg, #f8fafc 0%, #dcfce7 100%);
+            --grad-card: linear-gradient(145deg, #ffffff 0%, #f7fee7 100%);
+            --grad-footer: linear-gradient(135deg, #166534 0%, #14532d 50%, #0f3b21 100%);
+            --grad-nav: linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(240,253,244,0.98) 100%);
+        }
+
+        /* ========== UNIFIED HEADER & MOBILE MENU ========== */
+        .ecob-header {
+            background: var(--grad-nav);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(34,197,94,0.2);
+            position: fixed;
+            top: 0; width: 100%;
+            z-index: 1000;
+            box-shadow: 0 4px 20px rgba(34,197,94,0.1);
+            transition: var(--transition);
+        }
+        .ecob-header .container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+        .ecob-header-content { height: 80px; display: flex; align-items: center; justify-content: space-between; }
+        .ecob-logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            font-weight: 800;
+            font-size: 1.5rem;
+            background: linear-gradient(135deg, var(--dark-green), var(--primary-green));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .ecob-nav { display: flex; gap: 32px; }
+        .ecob-nav-link {
+            text-decoration: none;
+            color: var(--text-main);
+            font-weight: 500;
+            font-size: 0.95rem;
+            transition: var(--transition);
+            position: relative;
+            font-family: 'Poppins', sans-serif;
+        }
+        .ecob-nav-link::after {
+            content: '';
+            position: absolute;
+            bottom: -5px; left: 0;
+            width: 0; height: 2px;
+            background: var(--primary-green);
+            transition: var(--transition);
+        }
+        .ecob-nav-link:hover::after,
+        .ecob-nav-link.active::after { width: 100%; }
+        .ecob-nav-link:hover,
+        .ecob-nav-link.active { color: var(--primary-green); }
+
+        .ecob-hamburger {
+            display: none;
+            flex-direction: column;
+            gap: 5px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px;
+            z-index: 1101;
+        }
+        .ecob-hamburger span {
+            display: block;
+            width: 25px; height: 3px;
+            background: #334155;
+            border-radius: 3px;
+            transition: all 0.3s ease;
+        }
+        .ecob-hamburger.active span:nth-child(1) { transform: translateY(8px) rotate(45deg); }
+        .ecob-hamburger.active span:nth-child(2) { opacity: 0; transform: scaleX(0); }
+        .ecob-hamburger.active span:nth-child(3) { transform: translateY(-8px) rotate(-45deg); }
+
+        .ecob-mobile-menu {
+            position: fixed;
+            top: 0; right: -100%;
+            width: 100%; height: 100%;
+            background: #f8fafc;
+            transition: right 0.35s cubic-bezier(0.4,0,0.2,1);
+            z-index: 1100;
+            overflow-y: auto;
+        }
+        .ecob-mobile-menu.open { right: 0; }
+        .ecob-mobile-menu-content { padding: 100px 20px 40px; display: flex; flex-direction: column; gap: 10px; }
+        .ecob-mobile-link {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            text-decoration: none;
+            color: #334155;
+            font-weight: 500;
+            font-size: 1rem;
+            padding: 16px 20px;
+            border-radius: 16px;
+            background: #ffffff;
+            border: 1px solid #f1f5f9;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+            transition: all 0.25s ease;
+            font-family: 'Poppins', sans-serif;
+        }
+        .ecob-mobile-link:hover { background: #f0fdf4; border-color: rgba(34,197,94,0.2); color: #22c55e; }
+        .ecob-mobile-link.active { background: #22c55e; border-color: #22c55e; color: #ffffff; box-shadow: 0 4px 12px rgba(34,197,94,0.3); }
+        .ecob-mobile-link svg { width: 24px; height: 24px; flex-shrink: 0; }
+        .ecob-mobile-link:not(.active) svg path,
+        .ecob-mobile-link:not(.active) svg circle,
+        .ecob-mobile-link:not(.active) svg rect { stroke: #64748b; }
+        .ecob-mobile-link.active svg path,
+        .ecob-mobile-link.active svg circle,
+        .ecob-mobile-link.active svg rect { stroke: #ffffff; }
+
+        .ecob-footer {
+            background: var(--grad-footer);
+            padding: 80px 0 40px;
+            color: rgba(255,255,255,0.85);
+            border-top: 1px solid rgba(255,255,255,0.1);
+            margin-top: 60px;
+            font-family: 'Poppins', sans-serif;
+        }
+        .ecob-footer .container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+        .ecob-footer-content { display: grid; grid-template-columns: 1.5fr 1fr 1fr; gap: 60px; margin-bottom: 60px; }
+        .ecob-footer-logo { color: var(--white); font-size: 1.6rem; font-weight: 800; margin-bottom: 16px; display: flex; align-items: center; gap: 12px; }
+        .ecob-footer-logo span { background: linear-gradient(135deg, #bbf7d0, #86efac); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .ecob-footer-desc { font-size: 0.9rem; line-height: 1.7; margin-bottom: 24px; }
+        .ecob-footer-social { display: flex; gap: 12px; }
+        .ecob-social-link { width: 40px; height: 40px; background: rgba(255,255,255,0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: 0.3s; text-decoration: none; color: white; }
+        .ecob-social-link:hover { background: var(--primary-green); transform: translateY(-3px); }
+        .ecob-footer-title { color: var(--white); font-weight: 700; margin-bottom: 24px; font-size: 1.1rem; position: relative; display: inline-block; }
+        .ecob-footer-title::after { content: ''; position: absolute; bottom: -8px; left: 0; width: 40px; height: 3px; background: var(--primary-green); border-radius: 3px; }
+        .ecob-footer-links { list-style: none; }
+        .ecob-footer-links li { margin-bottom: 12px; }
+        .ecob-footer-links a { color: rgba(255,255,255,0.8); text-decoration: none; transition: 0.3s; display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
+        .ecob-footer-links a:hover { color: var(--primary-green); padding-left: 6px; }
+        .ecob-footer-contact { list-style: none; }
+        .ecob-footer-contact li { margin-bottom: 14px; display: flex; align-items: center; gap: 10px; font-size: 0.9rem; }
+        .ecob-footer-bottom { text-align: center; padding-top: 30px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+        .ecob-footer-bottom-links { display: flex; gap: 20px; }
+        .ecob-footer-bottom-links a { color: rgba(255,255,255,0.6); text-decoration: none; font-size: 0.82rem; transition: 0.3s; }
+        .ecob-footer-bottom-links a:hover { color: var(--primary-green); }
+
+        @media (max-width: 992px) {
+            .ecob-nav { display: none; }
+            .ecob-hamburger { display: flex; }
+            .ecob-footer-content { grid-template-columns: 1fr; gap: 40px; }
+            .ecob-footer-bottom { flex-direction: column; text-align: center; }
+        }
+        @media (max-width: 576px) {
+            .ecob-logo { font-size: 1.2rem; }
+        }
+
+        /* ========================================
+           PAGE HEADER
+           ======================================== */
+        .page-header {
+            padding: 120px 0 20px;
+            text-align: center;
+        }
+
+        .page-title {
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #166534, #22c55e);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 12px;
+        }
+
+        .page-subtitle {
+            color: #64748b;
+        }
+
+        /* ========================================
+           USER POINTS CARD
+           ======================================== */
+        .user-points-card {
+            background: linear-gradient(135deg, #22c55e, #15803d);
+            border-radius: 24px;
+            padding: 24px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 40px;
+            color: white;
+            box-shadow: 0 15px 30px rgba(34,197,94,0.25);
+        }
+
+        .user-points-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(34,197,94,0.35);
+        }
+
+        .points-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .points-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .points-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: 1px;
+        }
+
+        .btn-sm {
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(4px);
+            padding: 10px 20px;
+            border-radius: 40px;
+            text-decoration: none;
+            color: white;
+            font-weight: 600;
+            transition: all 0.3s;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-sm:hover {
+            background: white;
+            color: #15803d;
+            transform: scale(0.98);
+        }
+
+        /* ========================================
+           RECYCLE SECTION
+           ======================================== */
+        .recycle-section {
+            background: linear-gradient(145deg, #ffffff, #f7fee7);
+            border-radius: 24px;
+            padding: 24px 28px;
+            margin-bottom: 40px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            border: 1px solid rgba(34,197,94,0.15);
+        }
+
+        .recycle-section:hover {
+            box-shadow: 0 8px 25px rgba(34,197,94,0.15);
+            transform: translateY(-2px);
+        }
+
+        .recycle-info {
+            display: flex;
+            gap: 40px;
+            align-items: baseline;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .recycle-info p {
+            font-size: 1rem;
+            color: #334155;
+            font-weight: 500;
+        }
+
+        .recycle-stats {
+            font-weight: 800;
+            background: linear-gradient(135deg, #15803d, #22c55e);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 1.2rem;
+        }
+
+        /* ========================================
+           CATEGORY FILTER
+           ======================================== */
+        .category-filter {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 36px;
+            overflow-x: auto;
+            padding-bottom: 8px;
+        }
+
+        .filter-btn {
+            background: white;
+            border: 1px solid #e2e8f0;
+            padding: 8px 24px;
+            border-radius: 40px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: inherit;
+            white-space: nowrap;
+        }
+
+        .filter-btn:hover {
+            border-color: #22c55e;
+            transform: translateY(-2px);
+        }
+
+        .filter-btn.active {
+            background: linear-gradient(135deg, #22c55e, #15803d);
+            border-color: #22c55e;
+            color: white;
+            box-shadow: 0 4px 10px rgba(34,197,94,0.3);
+        }
+
+        /* ========================================
+           EBOOKS GRID
+           ======================================== */
+        .ebooks-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 30px;
+            margin-bottom: 60px;
+        }
+
+        .ebook-card {
+            background: white;
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid rgba(34,197,94,0.1);
+        }
+
+        .ebook-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 35px rgba(34,197,94,0.2);
+            border-color: rgba(34,197,94,0.3);
+        }
+
+        .ebook-cover {
+            width: 100%;
+            aspect-ratio: 3 / 4;
+            background-size: cover;
+            background-position: center;
+            background-color: #eef2ff;
+            transition: transform 0.5s ease;
+        }
+
+        .ebook-card:hover .ebook-cover {
+            transform: scale(1.02);
+        }
+
+        .ebook-info {
+            padding: 20px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .ebook-info h3 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: #0f172a;
+        }
+
+        .ebook-desc {
+            color: #64748b;
+            font-size: 0.75rem;
+            margin-bottom: 12px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .ebook-category {
+            display: inline-block;
+            background: #dcfce7;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #15803d;
+            align-self: flex-start;
+        }
+
+        .ebook-price {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: auto;
+        }
+
+        .price-tag {
+            font-weight: 800;
+            background: linear-gradient(135deg, #22c55e, #15803d);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-color: #dcfce7;
+            padding: 6px 14px;
+            border-radius: 40px;
+            font-size: 0.85rem;
+        }
+
+        .btn-redeem {
+            background: linear-gradient(135deg, #22c55e, #15803d);
+            border: none;
+            padding: 8px 20px;
+            border-radius: 40px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: inherit;
+        }
+
+        .btn-redeem:hover:not(:disabled) {
+            transform: scale(0.96);
+            box-shadow: 0 4px 10px rgba(34,197,94,0.3);
+        }
+
+        .btn-redeem.owned {
+            background: #94a3b8;
+            cursor: default;
+        }
+
+        .btn-redeem.disabled {
+            background: #cbd5e1;
+            cursor: not-allowed;
+        }
+
+        /* ========================================
+           NOTIFICATION
+           ======================================== */
+        .notification-container {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .notification {
+            background: white;
+            padding: 14px 24px;
+            border-radius: 60px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 500;
+            animation: slideInRight 0.4s ease;
+            border-left: 4px solid #22c55e;
+        }
+
+        .notification.error {
+            border-left-color: #ef4444;
+        }
+
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @media (max-width: 768px) {
+            .container { padding: 0 16px; }
+            .user-points-card { flex-direction: column; text-align: center; gap: 15px; padding: 20px; }
+            .points-value { font-size: 2rem; }
+            .recycle-info { flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+            .ebooks-grid { grid-template-columns: 1fr; gap: 20px; }
+            .page-title { font-size: 1.8rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ===== UNIFIED HEADER ===== -->
+    <header class="ecob-header">
+        <div class="container">
+            <div class="ecob-header-content">
+                <a href="index.html" class="ecob-logo">
+                    <svg width="38" height="38" viewBox="0 0 60 60" fill="none"><rect width="60" height="60" rx="14" fill="#22c55e"/><path d="M30 8L36 18H24L30 8Z" fill="white"/><rect x="21" y="18" width="18" height="28" rx="3" fill="white" opacity="0.9"/><path d="M26 22H34V27H26V22Z" fill="#22c55e" opacity="0.5"/><circle cx="30" cy="34" r="3" fill="#22c55e" opacity="0.7"/></svg>
+                    <span>EcoBotRec</span>
+                </a>
+                <nav class="ecob-nav">
+                    <a href="index.html" class="ecob-nav-link">Beranda</a>
+                    <a href="about.html" class="ecob-nav-link">Tentang</a>
+                    <a href="leaderboard.html" class="ecob-nav-link">Leaderboard</a>
+                    <a href="EBOOK.html" class="ecob-nav-link active">Koleksi Ebook</a>
+                    <a href="voucher.html" class="ecob-nav-link">Voucher</a>
+                    <a href="account.html" class="ecob-nav-link">Akun</a>
+                </nav>
+                <button class="ecob-hamburger" id="ecobHamburger"><span></span><span></span><span></span></button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ===== MOBILE MENU ===== -->
+    <div class="ecob-mobile-menu" id="ecobMobileMenu">
+        <div class="ecob-mobile-menu-content">
+            <a href="index.html" class="ecob-mobile-link"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M3 9L12 2L21 9V20C21 20.5304 20.7893 21.0391 20.4142 21.4142C20.0391 21.7893 19.5304 22 19 22H5C4.46957 22 3.96086 21.7893 3.58579 21.4142C3.21071 21.0391 3 20.5304 3 20V9Z" stroke="currentColor" stroke-width="2"/></svg><span>Beranda</span></a>
+            <a href="about.html" class="ecob-mobile-link"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><path d="M12 16V12M12 8H12.01" stroke="currentColor" stroke-width="2"/></svg><span>Tentang</span></a>
+            <a href="leaderboard.html" class="ecob-mobile-link"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" stroke="currentColor" stroke-width="2"/></svg><span>Leaderboard</span></a>
+            <a href="EBOOK.html" class="ecob-mobile-link active"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4 19.5C4 18.837 4.26339 18.2011 4.73223 17.7322C5.20107 17.2634 5.83696 17 6.5 17H20" stroke="currentColor" stroke-width="2"/><path d="M6.5 2H20V22H6.5C5.83696 22 5.20107 21.7366 4.73223 21.2678C4.26339 20.7989 4 20.163 4 19.5V4.5C4 3.83696 4.26339 3.20107 4.73223 2.73223C5.20107 2.26339 5.83696 2 6.5 2Z" stroke="currentColor" stroke-width="2"/></svg><span>Koleksi Ebook</span></a>
+            <a href="voucher.html" class="ecob-mobile-link"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="2" y="6" width="20" height="12" rx="3" stroke="currentColor" stroke-width="2"/><path d="M16 6V5C16 3.89543 15.1046 3 14 3H10C8.89543 3 8 3.89543 8 5V6" stroke="currentColor" stroke-width="2"/><path d="M16 12H16.01M8 12H8.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Voucher</span></a>
+            <a href="account.html" class="ecob-mobile-link"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M20 21V19C20 17.9391 19.5786 16.9217 18.8284 16.1716C18.0783 15.4214 17.0609 15 16 15H8C6.93913 15 5.92172 15.4214 5.17157 16.1716C4.42143 16.9217 4 17.9391 4 19V21" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2"/></svg><span>Akun</span></a>
+        </div>
+    </div>
+
+    <main id="mainContent">
+        <section class="page-header">
+            <div class="container">
+                <h1 class="page-title">Perpustakaan Ebook</h1>
+                <p class="page-subtitle">Tukar poin dengan ebook pilihan Anda (format PDF)</p>
+            </div>
+        </section>
+        <section class="ebook-section">
+            <div class="container">
+                <div class="user-points-card">
+                    <div class="points-info">
+                        <span class="points-label">Total Poin Anda (1 botol = 5 koin):</span>
+                        <span class="points-value" id="userPoints">0</span>
+                    </div>
+                    <button class="btn-sm" id="refreshPointsBtn">🔄 Refresh</button>
+                </div>
+                <div class="recycle-section">
+                    <div class="recycle-info">
+                        <p><strong>1 Botol Plastik = 5 Koin</strong></p>
+                        <p><strong>Setiap botol mengurangi 80g CO₂</strong></p>
+                        <p>Botol Anda: <span id="userBottlesCount" class="recycle-stats">0</span> botol</p>
+                    </div>
+                </div>
+                <div class="category-filter" id="categoryFilter">
+                    <button class="filter-btn active" data-category="semua">Semua (21)</button>
+                    <button class="filter-btn" data-category="Novel">Novel (9)</button>
+                    <button class="filter-btn" data-category="Bumi Series">Bumi Series (6)</button>
+                    <button class="filter-btn" data-category="Materi Pelajaran">Materi Pelajaran (4)</button>
+                    <button class="filter-btn" data-category="Lainnya">Lainnya (3)</button>
+                </div>
+                <div class="ebooks-grid" id="ebooksGrid"></div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="ecob-footer">
+        <div class="container">
+            <div class="ecob-footer-content">
+                <div><div class="ecob-footer-logo"><svg width="38" height="38" viewBox="0 0 60 60" fill="none"><rect width="60" height="60" rx="14" fill="#22c55e"/><path d="M30 8L36 18H24L30 8Z" fill="white"/><rect x="21" y="18" width="18" height="28" rx="3" fill="white" opacity="0.9"/><path d="M26 22H34V27H26V22Z" fill="#22c55e" opacity="0.5"/><circle cx="30" cy="34" r="3" fill="#22c55e" opacity="0.7"/></svg><span>EcoBotRec</span></div><p class="ecob-footer-desc">Website EcoBotRec: Penukaran botol plastik anda menjadi sesuatu yang lebih berharga.</p><div class="ecob-footer-social"><a href="#" class="ecob-social-link">FB</a><a href="#" class="ecob-social-link">IG</a><a href="#" class="ecob-social-link">TW</a></div></div>
+                <div><h3 class="ecob-footer-title">Navigasi</h3><ul class="ecob-footer-links"><li><a href="index.html">Beranda</a></li><li><a href="about.html">Tentang Kami</a></li><li><a href="leaderboard.html">Leaderboard</a></li><li><a href="EBOOK.html">Koleksi Ebook</a></li><li><a href="voucher.html">Voucher</a></li><li><a href="account.html">Akun Saya</a></li></ul></div>
+                <div><h3 class="ecob-footer-title">Kontak</h3><ul class="ecob-footer-contact"><li>📧 ecobottrecycle@gmail.com</li><li>📞 +62 812-3456-7890</li><li>📍 Gombong, Jawa Tengah</li></ul></div>
+            </div>
+            <div class="ecob-footer-bottom"><p>&copy; 2026 EcoBotRec. Menjaga Bumi Lebih Hijau.</p><div class="ecob-footer-bottom-links"><a href="#">Kebijakan Privasi</a><a href="#">Syarat &amp; Ketentuan</a></div></div>
+        </div>
+    </footer>
+    <div class="notification-container" id="notificationContainer"></div>
+
+    <script>
+        // ======================= KONFIGURASI FIREBASE =======================
+        const firebaseConfig = { databaseURL: "https://ecobottle-463c3-default-rtdb.asia-southeast1.firebasedatabase.app" };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        const COINS_PER_BOTTLE = 5;
+        
+        // Data pengguna yang valid (sama dengan login.html)
+        const validUsers = [
+            { name: "Raffa", nisn: "0121997451", uid: "0174346A" },
+            { name: "Warren", nisn: "0128091655", uid: "F1F53F6A" },
+            { name: "Lodra", nisn: "0117048051", uid: "9185306A" },
+            { name: "Nazifa", nisn: "0117081155", uid: "9172486A" },
+            { name: "Damai", nisn: "0116361248", uid: "519F396A" },
+            { name: "Pak Heri", nisn: "H3R1GURU", uid: "F3B14B16" },
+            { name: "Resvan", nisn: "RESV4N01", uid: "E0EDA65F" }
+        ];
+
+        let currentUser = null;
+        let userBottles = 0;
+        let currentPoints = 0;
+        let ownedBooks = new Set();
+        let activeCategory = "semua";
+        let userBottlesRef = null;
+
+        // DAFTAR BUKU LENGKAP
+        const books = [
+            { id: 'b1', title: 'Soal TKA MTK Paket C (Tanpa Pembahasan)', desc: 'Kumpulan 40 soal TKA SMP.', category: 'Materi Pelajaran', price: 50, driveLink: 'https://drive.google.com/uc?export=download&id=1mu0wJlqCEhaBZ04baA40pPpbO1BIzNWV', coverLink: 'https://lh3.googleusercontent.com/d/1woDdu6IDEEG7-JnGXfaqAaT-m1EYFXsT' },
+            { id: 'b2', title: 'Atomic Habits', desc: 'Buku self-improvement tentang perubahan kecil 1% setiap hari.', category: 'Lainnya', price: 100, driveLink: 'https://drive.google.com/uc?export=download&id=1VxWGQeIj3jFFd8Eyr0QcbKji_fEYqoJW', coverLink: 'https://lh3.googleusercontent.com/d/1yhTEGRLr9QFTUC9o_Z-Vsr5MWtrcDHHZ' },
+            { id: 'b3', title: '-Bumi Series- Bumi', desc: 'Awal petualangan Raib, Seli, dan Ali melawan Tamus.', category: 'Bumi Series', price: 100, driveLink: 'https://drive.google.com/uc?export=download&id=1eN6XfqxOIqQQoFCTyCUm6VtI6jlKBYLA', coverLink: 'https://lh3.googleusercontent.com/d/17PLlxdrVtpsukwYBajpLsNEeuxPteR_E' },
+            { id: 'b4', title: '-Bumi Series- Komet', desc: 'Petualangan di Klan Matahari Minor mencari tumbuhan komet.', category: 'Bumi Series', price: 100, driveLink: 'https://drive.google.com/uc?export=download&id=1B1Pzw_zHNTMqWy0YuH-Xw6yy4yTMaijg', coverLink: 'https://lh3.googleusercontent.com/d/1HdBVjMyDcb0-xdqmjLay-wwzDktbssif' },
+            { id: 'b5', title: '-Bumi Series- Bintang', desc: 'Misi ke Klan Bintang untuk mencegah kehancuran.', category: 'Bumi Series', price: 100, driveLink: 'https://drive.google.com/uc?export=download&id=1tg2D8ffDroonqYkhYFMUlyH8ppyFOaJY', coverLink: 'https://lh3.googleusercontent.com/d/1UPCwD83Ra-fS0vrear-DDpGk_JssucLm' },
+            { id: 'b6', title: '-Bumi Series- Matahari', desc: 'Terjebak dalam kompetisi tahunan klan Matahari.', category: 'Bumi Series', price: 100, driveLink: 'https://drive.google.com/uc?export=download&id=1hvc-91AFdWmD0GJBSM6xiqrC4DsauGln', coverLink: 'https://lh3.googleusercontent.com/d/1SpQN9mlW0d5WDMhALrJtff_pJGGOjmen' },
+            { id: 'b7', title: '-Bumi Series- Komet Minor', desc: 'Puncak pertarungan melawan Si Tanpa Mahkota.', category: 'Bumi Series', price: 100, driveLink: 'https://drive.google.com/uc?export=download&id=15YEVA91mPPGxrPBUVZP_Cto27U4QYpdR', coverLink: 'https://lh3.googleusercontent.com/d/1Ou5J8_u-5UTkIGxkOpXJo-5P99nS07nc' },
+            { id: 'b8', title: '-Bumi Series- Si Putih', desc: 'Kisah kucing kesayangan Raib yang memiliki kekuatan besar.', category: 'Bumi Series', price: 100, driveLink: 'https://drive.google.com/uc?export=download&id=1-yZqx-LiezIGY1UFMQpdUwDeDivFd7FA', coverLink: 'https://lh3.googleusercontent.com/d/1BvKXs6HIRI_NbRhVzUgRK33zgxa6HMYS' },
+            { id: 'b9', title: 'Laut Bercerita', desc: 'Novel fiksi sejarah tentang perjuangan aktivis mahasiswa.', category: 'Novel', price: 100, driveLink: 'https://drive.google.com/uc?export=download&id=148-LilFYieS7docT4IWDn9Dh2x_fGEdn', coverLink: 'https://lh3.googleusercontent.com/d/1tMBF5YLdFciksueV9lOuVrWLfIpF9PB_' },
+            { id: 'b10', title: 'Filosofi Teras', desc: 'Buku pengembangan diri tentang Stoisisme.', category: 'Lainnya', price: 100, driveLink: 'https://drive.google.com/uc?export=download&id=1hIpQDYdx8ZuzhOqVgqszMfaU8VJgYeB2', coverLink: 'https://lh3.googleusercontent.com/d/1pF7rHWg_iNdgLLv4nzo07Ma5YV2-YIFb' },
+            { id: 'b11', title: 'Lukacita', desc: 'Perjalanan hidup, kegagalan, dan luka dalam menggapai cita-cita.', category: 'Novel', price: 100, driveLink: 'https://drive.google.com/uc?export=download&id=1Yc7o3bA1FfYVawFl8biZiEH2QDJSdu4F', coverLink: 'https://lh3.googleusercontent.com/d/1RCqG-hUV5ZsALljjkxHprF7pop71PbZi' },
+            { id: 'b12', title: 'Legendary (Series Caraval)', desc: 'Petualangan Tella dalam permainan sihir Caraval.', category: 'Novel', price: 100, driveLink: 'https://drive.google.com/uc?export=download&id=15_224BwDSAcxmj_PLUVKcWe_x98_jzt9', coverLink: 'https://lh3.googleusercontent.com/d/1dOA50Z0VcX81mi99FbmPF04_UDgYGseq' },
+            { id: 'b13', title: 'Si Anak Badai', desc: 'Petualangan Za menjaga integritas desa.', category: 'Novel', price: 100, driveLink: 'https://drive.google.com/uc?export=download&id=15MYgsvw2f4YzwXawkJB18zqbiN4B-7eU', coverLink: 'https://lh3.googleusercontent.com/d/1DDbBAGJZ_9MNorYvHd8cVoBKlQ2qLulJ' },
+            { id: 'b14', title: 'Soal TKA MTK Paket A', desc: 'Kumpulan 40 soal TKA MTK SMP + Pembahasan.', category: 'Materi Pelajaran', price: 100, driveLink: 'https://drive.google.com/uc?export=download&id=1HG0GhZ_2TiW9mvJHBPY99-odB3WppYYh', coverLink: 'https://lh3.googleusercontent.com/d/1hho-D60xJzu7SmtURCzIhoT5kKGKWkKB' },
+            { id: 'b15', title: 'SagaraS', desc: 'Misteri asal-usul keluarga Ali dan dunia paralel SagaraS.', category: 'Novel', price: 100, driveLink: 'https://drive.google.com/uc?export=download&id=1ymnsPgNN-O6XlbujZCyMSHnJ-mcGytgE', coverLink: 'https://lh3.googleusercontent.com/d/1kzQ9yyj6z4zJYi9yBO58GzSjXl8t2dgk' },
+            { id: 'b16', title: 'Seorang Pria yang Melalui Duka dengan Mencuci Piring', desc: 'Pemulihan batin dari kedukaan secara mindful.', category: 'Lainnya', price: 100, driveLink: 'https://drive.google.com/uc?export=download&id=19bk20Va_NLjYbtOzaGujXdbEc7GmILiy', coverLink: 'https://lh3.googleusercontent.com/d/1H4wa-J4CmXTpFLU34L9AnnBa0fFGjKik' },
+            { id: 'b17', title: 'Surat Untuk Jenaka', desc: 'Gadis yang terlempar ke masa lalu melalui kotak perhiasan.', category: 'Novel', price: 100, driveLink: 'https://drive.google.com/uc?export=download&id=1g5XsYMkGjD-koDtevHwXfupefudeDPve', coverLink: 'https://lh3.googleusercontent.com/d/1F3ywIcb5GU59LSpwfCX75sBy_bk-Hrme' },
+            { id: 'b18', title: 'Tentang Kamu', desc: 'Investigasi pengacara mengungkap kisah luar biasa seorang wanita.', category: 'Novel', price: 100, driveLink: 'https://drive.google.com/uc?export=download&id=1u7BI0lvBUpCnJ9t02AyiLPelaqpRaLaK', coverLink: 'https://lh3.googleusercontent.com/d/1vQQ4QlDNM4WTGU5TVXQqdsq7v2bCMbIJ' },
+            { id: 'b19', title: 'Rasa', desc: 'Kontraktor merenovasi rumah tua dan menemukan rahasia perasaan.', category: 'Novel', price: 150, driveLink: 'https://drive.google.com/uc?export=download&id=1-MHO6-qLOqXggDdWOaUFrLQMnm53Isqp', coverLink: 'https://lh3.googleusercontent.com/d/11DXUHu9SC9Z2XpoxS0NJvprEgZ3PiY4n' },
+            { id: 'b20', title: 'Soal TKA MTK Paket B', desc: 'Kumpulan 40 soal TKA SMP + Pembahasan.', category: 'Materi Pelajaran', price: 150, driveLink: 'https://drive.google.com/uc?export=download&id=1b7NqWWZTHMBqdahE_JIZYxxxWeT2_BJh', coverLink: 'https://lh3.googleusercontent.com/d/11cRA_kWcS9l-xBL7eF2AKtf3Cjstw9Nv' },
+            { id: 'b21', title: 'Materi & Soal OSN IPS SMP', desc: 'Materi dan latihan soal OSN IPS SMP.', category: 'Materi Pelajaran', price: 150, driveLink: 'https://drive.google.com/uc?export=download&id=1db_GVmruFPM8tNwnxp0uZTkAqrzrDPEo', coverLink: 'https://lh3.googleusercontent.com/d/1IHq1yB_46uBnmVmFZsuQRTp1AKUd9wj8' }
+        ];
+
+        function showNotification(message, isError = false) {
+            const container = document.getElementById("notificationContainer");
+            const notif = document.createElement("div");
+            notif.className = `notification ${isError ? 'error' : ''}`;
+            notif.innerHTML = `${isError ? '❌' : '✅'} ${message}`;
+            container.appendChild(notif);
+            setTimeout(() => notif.remove(), 4000);
+        }
+
+        // Load data user dari localStorage (dari login.html)
+        function getCurrentUserFromStorage() {
+            const saved = localStorage.getItem('ecobottle_user');
+            if (saved) {
+                try {
+                    const { name, uid } = JSON.parse(saved);
+                    const user = validUsers.find(u => u.name === name && u.uid === uid);
+                    if (user) return user;
+                } catch(e) {}
+            }
+            return null;
+        }
+
+        function loadUserBottles() {
+            if (!currentUser) return;
+            userBottlesRef = db.ref(`users/${currentUser.uid}/total_botol`);
+            userBottlesRef.on('value', (snapshot) => {
+                userBottles = snapshot.val() || 0;
+                currentPoints = userBottles * COINS_PER_BOTTLE;
+                document.getElementById("userPoints").innerText = currentPoints;
+                document.getElementById("userBottlesCount").innerText = userBottles;
+                renderEbooks();
+            });
+        }
+
+        function loadOwnedBooks() {
+            if (!currentUser) return;
+            const ownedRef = db.ref(`users/${currentUser.uid}/ownedBooks`);
+            ownedRef.on('value', (snapshot) => {
+                ownedBooks.clear();
+                const data = snapshot.val();
+                if (data && typeof data === 'object') {
+                    Object.keys(data).forEach(bookId => { if (data[bookId] === true) ownedBooks.add(bookId); });
+                }
+                renderEbooks();
+            });
+        }
+
+        function renderEbooks() {
+            const grid = document.getElementById("ebooksGrid");
+            const filtered = activeCategory === "semua" ? books : books.filter(b => b.category === activeCategory);
+            
+            if (filtered.length === 0) {
+                grid.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:60px;">📭 Tidak ada ebook di kategori ini.</div>`;
+                return;
+            }
+            
+            grid.innerHTML = filtered.map((book) => {
+                const isOwned = ownedBooks.has(book.id);
+                const isAffordable = currentPoints >= book.price;
+                let buttonText = "Tukar PDF", buttonClass = "", disabled = false;
+                if (isOwned) { buttonText = "Dimiliki"; buttonClass = "owned"; disabled = true; }
+                else if (!isAffordable) { buttonText = "Poin Kurang"; buttonClass = "disabled"; disabled = true; }
+                return `
+                    <div class="ebook-card">
+                        <div class="ebook-cover" style="background-image: url('${book.coverLink}'); background-size: cover; background-position: center;"></div>
+                        <div class="ebook-info">
+                            <h3>${escapeHtml(book.title)}</h3>
+                            <p class="ebook-desc">${escapeHtml(book.desc)}</p>
+                            <span class="ebook-category">${book.category}</span>
+                            <div class="ebook-price">
+                                <span class="price-tag">${book.price} Poin</span>
+                                <button class="btn-redeem ${buttonClass}" data-id="${book.id}" ${disabled ? 'disabled' : ''}>${buttonText}</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            document.querySelectorAll('.btn-redeem:not(.owned):not(.disabled):not(:disabled)').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const bookId = btn.getAttribute('data-id');
+                    const book = books.find(b => b.id === bookId);
+                    if (book) redeemBook(book);
+                });
+            });
+        }
+
+        async function redeemBook(book) {
+            if (!currentUser) return;
+            if (ownedBooks.has(book.id)) { showNotification(`Anda sudah memiliki "${book.title}".`); return; }
+            if (currentPoints < book.price) { showNotification(`Poin tidak cukup! Butuh ${book.price} poin, Anda punya ${currentPoints}.`, true); return; }
+            if (confirm(`Tukar "${book.title}" dengan ${book.price} poin? File PDF akan diunduh.`)) {
+                try {
+                    const requiredBottles = Math.ceil(book.price / COINS_PER_BOTTLE);
+                    const newBottles = userBottles - requiredBottles;
+                    if (newBottles < 0) { showNotification("Poin tidak cukup!", true); return; }
+                    await userBottlesRef.set(newBottles);
+                    await db.ref(`users/${currentUser.uid}/ownedBooks/${book.id}`).set(true);
+                    showNotification(`Berhasil menukar "${book.title}". Download dimulai.`);
+                    const link = document.createElement('a');
+                    link.href = book.driveLink;
+                    link.setAttribute('download', `${book.title}.pdf`);
+                    link.target = "_blank";
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                } catch (err) { showNotification("Gagal melakukan transaksi: " + err.message, true); }
+            }
+        }
+
+        function escapeHtml(str) { 
+            return str.replace(/[&<>]/g, function(m) { 
+                if (m === '&') return '&amp;'; 
+                if (m === '<') return '&lt;'; 
+                if (m === '>') return '&gt;'; 
+                return m; 
+            }); 
+        }
+
+        function initFilters() {
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    activeCategory = btn.getAttribute('data-category');
+                    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    renderEbooks();
+                });
+            });
+        }
+
+        // Logout function
+        function logout() {
+            if (userBottlesRef) userBottlesRef.off();
+            currentUser = null;
+            localStorage.removeItem('ecobottle_user');
+            sessionStorage.removeItem('ecobottle_logged_in');
+            window.location.replace('login.html');
+        }
+
+        // Mobile Menu
+        (function() {
+            var btn = document.getElementById('ecobHamburger');
+            var menu = document.getElementById('ecobMobileMenu');
+            if (!btn || !menu) return;
+            btn.addEventListener('click', function() {
+                var open = menu.classList.contains('open');
+                if (open) {
+                    btn.classList.remove('active');
+                    menu.classList.remove('open');
+                    document.body.style.overflow = '';
+                } else {
+                    btn.classList.add('active');
+                    menu.classList.add('open');
+                    document.body.style.overflow = 'hidden';
+                }
+            });
+            document.querySelectorAll('.ecob-mobile-link').forEach(function(link) {
+                link.addEventListener('click', function() {
+                    btn.classList.remove('active');
+                    menu.classList.remove('open');
+                    document.body.style.overflow = '';
+                });
+            });
+        })();
+
+        document.getElementById('refreshPointsBtn').addEventListener('click', () => showNotification("Poin sudah sinkron dari database", false));
+
+        // Inisialisasi - ambil user dari localStorage (dari login.html)
+        function init() {
+            currentUser = getCurrentUserFromStorage();
+            if (!currentUser) {
+                window.location.replace('login.html');
+                return;
+            }
+            loadUserBottles();
+            loadOwnedBooks();
+            initFilters();
+        }
+
+        init();
+    </script>
+</body>
+</html>

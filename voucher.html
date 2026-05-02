@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Voucher - EcoBotRec</title>
+    <style>html{visibility:hidden}</style>
+<script>
+(function(){
+    var saved = localStorage.getItem('ecobottle_user');
+    if(!saved){
+        window.location.replace('login.html');
+    } else {
+        sessionStorage.setItem('ecobottle_logged_in','true');
+        document.documentElement.style.visibility='visible';
+    }
+})();
+</script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #f8fafc 0%, #dcfce7 100%);
+            color: #1e293b;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        .container { max-width: 1280px; margin: 0 auto; padding: 0 24px; }
+        :root {
+            --primary-green: #22c55e;
+            --dark-green: #15803d;
+            --light-green: #f0fdf4;
+            --soft-green: #bbf7d0;
+            --text-main: #1a1a2e;
+            --text-gray: #64748b;
+            --white: #ffffff;
+            --shadow-sm: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 20px 25px -5px rgb(0 0 0 / 0.1);
+            --transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            --grad-bg: linear-gradient(135deg, #f8fafc 0%, #dcfce7 100%);
+            --grad-card: linear-gradient(145deg, #ffffff 0%, #f7fee7 100%);
+            --grad-footer: linear-gradient(135deg, #166534 0%, #14532d 50%, #0f3b21 100%);
+            --grad-nav: linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(240,253,244,0.98) 100%);
+        }
+        /* ===== UNIFIED HEADER & MOBILE MENU ===== */
+        .ecob-header {
+            background: var(--grad-nav);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(34,197,94,0.2);
+            position: fixed;
+            top: 0; width: 100%;
+            z-index: 1000;
+            box-shadow: 0 4px 20px rgba(34,197,94,0.1);
+        }
+        .ecob-header .container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+        .ecob-header-content { height: 80px; display: flex; align-items: center; justify-content: space-between; }
+        .ecob-logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            font-weight: 800;
+            font-size: 1.5rem;
+            background: linear-gradient(135deg, var(--dark-green), var(--primary-green));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .ecob-nav { display: flex; gap: 32px; }
+        .ecob-nav-link {
+            text-decoration: none;
+            color: var(--text-main);
+            font-weight: 500;
+            font-size: 0.95rem;
+            transition: var(--transition);
+            position: relative;
+        }
+        .ecob-nav-link::after {
+            content: '';
+            position: absolute;
+            bottom: -5px; left: 0;
+            width: 0; height: 2px;
+            background: var(--primary-green);
+            transition: var(--transition);
+        }
+        .ecob-nav-link:hover::after, .ecob-nav-link.active::after { width: 100%; }
+        .ecob-nav-link:hover, .ecob-nav-link.active { color: var(--primary-green); }
+        .ecob-hamburger {
+            display: none;
+            flex-direction: column;
+            gap: 5px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px;
+            z-index: 1101;
+        }
+        .ecob-hamburger span {
+            display: block;
+            width: 25px; height: 3px;
+            background: #334155;
+            border-radius: 3px;
+            transition: all 0.3s ease;
+        }
+        .ecob-hamburger.active span:nth-child(1) { transform: translateY(8px) rotate(45deg); }
+        .ecob-hamburger.active span:nth-child(2) { opacity: 0; transform: scaleX(0); }
+        .ecob-hamburger.active span:nth-child(3) { transform: translateY(-8px) rotate(-45deg); }
+        .ecob-mobile-menu {
+            position: fixed;
+            top: 0; right: -100%;
+            width: 100%; height: 100%;
+            background: #f8fafc;
+            transition: right 0.35s cubic-bezier(0.4,0,0.2,1);
+            z-index: 1100;
+            overflow-y: auto;
+        }
+        .ecob-mobile-menu.open { right: 0; }
+        .ecob-mobile-menu-content { padding: 100px 20px 40px; display: flex; flex-direction: column; gap: 10px; }
+        .ecob-mobile-link {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            text-decoration: none;
+            color: #334155;
+            font-weight: 500;
+            font-size: 1rem;
+            padding: 16px 20px;
+            border-radius: 16px;
+            background: #ffffff;
+            border: 1px solid #f1f5f9;
+            transition: all 0.25s ease;
+        }
+        .ecob-mobile-link:hover { background: #f0fdf4; border-color: rgba(34,197,94,0.2); color: #22c55e; }
+        .ecob-mobile-link.active { background: #22c55e; border-color: #22c55e; color: #ffffff; }
+        .ecob-mobile-link svg { width: 24px; height: 24px; flex-shrink: 0; }
+        .ecob-footer {
+            background: var(--grad-footer);
+            padding: 80px 0 40px;
+            color: rgba(255,255,255,0.85);
+            border-top: 1px solid rgba(255,255,255,0.1);
+            margin-top: 60px;
+        }
+        .ecob-footer .container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+        .ecob-footer-content { display: grid; grid-template-columns: 1.5fr 1fr 1fr; gap: 60px; margin-bottom: 60px; }
+        .ecob-footer-logo {
+            color: var(--white);
+            font-size: 1.6rem;
+            font-weight: 800;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .ecob-footer-logo span { background: linear-gradient(135deg, #bbf7d0, #86efac); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .ecob-footer-desc { font-size: 0.9rem; line-height: 1.7; margin-bottom: 24px; }
+        .ecob-footer-social { display: flex; gap: 12px; }
+        .ecob-social-link {
+            width: 40px; height: 40px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            transition: 0.3s;
+            text-decoration: none; color: white;
+        }
+        .ecob-social-link:hover { background: var(--primary-green); transform: translateY(-3px); }
+        .ecob-footer-title {
+            color: var(--white);
+            font-weight: 700;
+            margin-bottom: 24px;
+            font-size: 1.1rem;
+            position: relative;
+            display: inline-block;
+        }
+        .ecob-footer-title::after {
+            content: '';
+            position: absolute;
+            bottom: -8px; left: 0;
+            width: 40px; height: 3px;
+            background: var(--primary-green);
+            border-radius: 3px;
+        }
+        .ecob-footer-links { list-style: none; }
+        .ecob-footer-links li { margin-bottom: 12px; }
+        .ecob-footer-links a {
+            color: rgba(255,255,255,0.8);
+            text-decoration: none;
+            transition: 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+        }
+        .ecob-footer-links a:hover { color: var(--primary-green); padding-left: 6px; }
+        .ecob-footer-contact { list-style: none; }
+        .ecob-footer-contact li { margin-bottom: 14px; display: flex; align-items: center; gap: 10px; font-size: 0.9rem; }
+        .ecob-footer-bottom { text-align: center; padding-top: 30px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; font-size: 0.85rem; }
+        @media (max-width: 992px) {
+            .ecob-nav { display: none; }
+            .ecob-hamburger { display: flex; }
+            .ecob-footer-content { grid-template-columns: 1fr; gap: 40px; }
+            .ecob-footer-bottom { flex-direction: column; text-align: center; }
+        }
+        /* ===== VOUCHER PAGE STYLES ===== */
+        .page-header { padding: 120px 0 30px; text-align: center; }
+        .page-title { font-size: 2.5rem; font-weight: 800; background: linear-gradient(135deg, #166534, #22c55e); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 12px; }
+        .user-points-card {
+            background: linear-gradient(135deg, #22c55e, #15803d);
+            border-radius: 24px;
+            padding: 24px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 40px;
+            color: white;
+            box-shadow: 0 15px 30px rgba(34,197,94,0.25);
+        }
+        .points-value { font-size: 2.5rem; font-weight: 800; }
+        .voucher-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 30px; margin-bottom: 60px; }
+        .voucher-card {
+            background: var(--grad-card);
+            border-radius: 24px;
+            padding: 28px 20px;
+            text-align: center;
+            border: 1px solid rgba(34,197,94,0.15);
+            transition: var(--transition);
+        }
+        .voucher-card:hover { transform: translateY(-6px); box-shadow: var(--shadow-lg); border-color: var(--primary-green); }
+        .voucher-price { font-size: 2rem; font-weight: 800; color: var(--primary-green); margin-bottom: 8px; }
+        .voucher-points { font-weight: 700; background: #fef3c7; display: inline-block; padding: 5px 18px; border-radius: 40px; color: #b45309; margin-bottom: 24px; font-size: 0.85rem; }
+        .exchange-btn {
+            width: 100%; padding: 12px; border-radius: 40px; border: none;
+            background: #effaf5; color: var(--primary-green); font-weight: 700;
+            cursor: pointer; transition: 0.2s; font-family: 'Poppins', sans-serif;
+        }
+        .exchange-btn:hover:not(:disabled) { background: var(--primary-green); color: white; box-shadow: 0 4px 10px rgba(34,197,94,0.3); }
+        .exchange-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .tutorial-section {
+            background: linear-gradient(145deg, #ffffff, #f7fee7);
+            border-radius: 32px;
+            padding: 40px 30px;
+            margin: 40px 0;
+        }
+        .step-list { display: flex; flex-direction: column; gap: 20px; margin-top: 30px; }
+        .step-item {
+            display: flex; gap: 20px; align-items: center;
+            background: white; padding: 18px 24px; border-radius: 28px;
+            box-shadow: var(--shadow-sm); border-left: 4px solid var(--primary-green);
+        }
+        .step-num {
+            background: var(--primary-green); color: white; width: 44px; height: 44px;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-weight: 800; font-size: 1.3rem; flex-shrink: 0;
+        }
+        .step-content h4 { font-weight: 800; color: #166534; margin-bottom: 4px; }
+        .step-content p { color: #64748b; font-size: 0.85rem; }
+        .img-wrapper { text-align: center; margin-top: 30px; }
+        .tutorial-img {
+            width: 100%; max-width: 360px; border-radius: 24px;
+            box-shadow: 0 12px 22px rgba(0,0,0,0.1);
+            border: 2px solid white;
+        }
+        .img-caption { font-size: 11px; font-weight: 500; margin-top: 8px; color: var(--primary-dark); }
+        .voucher-popup {
+            display: none; position: fixed; inset: 0;
+            background: rgba(20, 55, 40, 0.85); backdrop-filter: blur(12px);
+            z-index: 5000; justify-content: center; align-items: center; flex-direction: column;
+        }
+        .v-ticket {
+            background: white; border-radius: 44px; width: 90%; max-width: 360px;
+            padding: 44px 20px 32px; text-align: center; position: relative;
+            box-shadow: 0 30px 40px rgba(0,0,0,0.3);
+        }
+        .success-icon {
+            background: var(--primary-green); color: white; width: 54px; height: 54px;
+            border-radius: 50%; display: flex; justify-content: center; align-items: center;
+            margin: -72px auto 16px; font-size: 28px; border: 4px solid white;
+        }
+        .v-price-big { font-size: 36px; font-weight: 800; color: var(--primary-green); margin-bottom: 14px; }
+        .v-code-container { border: 2px dashed var(--primary-green); border-radius: 18px; padding: 10px; margin-bottom: 18px; background: #f6fff9; }
+        .v-code-text { font-size: 22px; font-weight: 800; letter-spacing: 1px; color: #1c6e42; }
+        .back-home { margin-top: 24px; background: white; padding: 10px 28px; border-radius: 50px; font-weight: 700; cursor: pointer; color: var(--primary-green); }
+        .notification-container { position: fixed; bottom: 24px; right: 24px; z-index: 1000; display: flex; flex-direction: column; gap: 12px; }
+        .notification { background: white; padding: 12px 24px; border-radius: 60px; box-shadow: 0 8px 20px rgba(0,0,0,0.15); display: flex; align-items: center; gap: 12px; font-weight: 500; animation: slideInRight 0.4s ease; border-left: 4px solid #22c55e; }
+        .notification.error { border-left-color: #ef4444; }
+        @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="ecob-header">
+    <div class="container">
+        <div class="ecob-header-content">
+            <a href="index.html" class="ecob-logo">
+                <svg width="38" height="38" viewBox="0 0 60 60" fill="none"><rect width="60" height="60" rx="14" fill="#22c55e"/><path d="M30 8L36 18H24L30 8Z" fill="white"/><rect x="21" y="18" width="18" height="28" rx="3" fill="white" opacity="0.9"/><path d="M26 22H34V27H26V22Z" fill="#22c55e" opacity="0.5"/><circle cx="30" cy="34" r="3" fill="#22c55e" opacity="0.7"/></svg>
+                <span>EcoBotRec</span>
+            </a>
+            <nav class="ecob-nav">
+                <a href="index.html" class="ecob-nav-link">Beranda</a>
+                <a href="about.html" class="ecob-nav-link">Tentang</a>
+                <a href="leaderboard.html" class="ecob-nav-link">Leaderboard</a>
+                <a href="EBOOK.html" class="ecob-nav-link">Koleksi Ebook</a>
+                <a href="voucher.html" class="ecob-nav-link active">Voucher</a>
+                <a href="account.html" class="ecob-nav-link">Akun</a>
+            </nav>
+            <button class="ecob-hamburger" id="ecobHamburger"><span></span><span></span><span></span></button>
+        </div>
+    </div>
+</header>
+
+<!-- MOBILE MENU -->
+<div class="ecob-mobile-menu" id="ecobMobileMenu">
+    <div class="ecob-mobile-menu-content">
+        <a href="index.html" class="ecob-mobile-link"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M3 9L12 2L21 9V20C21 20.5304 20.7893 21.0391 20.4142 21.4142C20.0391 21.7893 19.5304 22 19 22H5C4.46957 22 3.96086 21.7893 3.58579 21.4142C3.21071 21.0391 3 20.5304 3 20V9Z" stroke="currentColor" stroke-width="2"/></svg><span>Beranda</span></a>
+        <a href="about.html" class="ecob-mobile-link"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><path d="M12 16V12M12 8H12.01" stroke="currentColor" stroke-width="2"/></svg><span>Tentang</span></a>
+        <a href="leaderboard.html" class="ecob-mobile-link"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" stroke="currentColor" stroke-width="2"/></svg><span>Leaderboard</span></a>
+        <a href="EBOOK.html" class="ecob-mobile-link"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4 19.5C4 18.837 4.26339 18.2011 4.73223 17.7322C5.20107 17.2634 5.83696 17 6.5 17H20" stroke="currentColor" stroke-width="2"/><path d="M6.5 2H20V22H6.5C5.83696 22 5.20107 21.7366 4.73223 21.2678C4.26339 20.7989 4 20.163 4 19.5V4.5C4 3.83696 4.26339 3.20107 4.73223 2.73223C5.20107 2.26339 5.83696 2 6.5 2Z" stroke="currentColor" stroke-width="2"/></svg><span>Koleksi Ebook</span></a>
+        <a href="voucher.html" class="ecob-mobile-link active"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4 4h16v16H4z" stroke="currentColor" stroke-width="2"/><path d="M8 8h8M8 12h6M8 16h4" stroke="currentColor" stroke-width="2"/></svg><span>Voucher</span></a>
+        <a href="account.html" class="ecob-mobile-link"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M20 21V19C20 17.9391 19.5786 16.9217 18.8284 16.1716C18.0783 15.4214 17.0609 15 16 15H8C6.93913 15 5.92172 15.4214 5.17157 16.1716C4.42143 16.9217 4 17.9391 4 19V21" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2"/></svg><span>Akun</span></a>
+    </div>
+</div>
+
+<!-- MAIN VOUCHER CONTENT -->
+<main id="mainContent">
+    <div class="container">
+        <div class="page-header"><h1 class="page-title">Tukar Voucher</h1><p class="page-subtitle">Kumpulkan poin dari botol plastik dan tukarkan dengan voucher</p></div>
+        <div class="user-points-card"><div class="points-info"><span class="points-label">Total Poin Anda (1 botol = 5 poin):</span><span class="points-value" id="userPoints">0</span></div></div>
+        <div class="voucher-grid" id="voucherGrid"></div>
+        <div class="tutorial-section">
+            <h3 style="font-weight:800; margin-bottom:16px;">📘 Panduan Penukaran</h3>
+            <div class="step-list">
+                <div class="step-item"><div class="step-num">1</div><div class="step-content"><h4>Cukupi poin Anda</h4><p>Setiap 1 botol = 5 poin. Pastikan poin mencukupi.</p></div></div>
+                <div class="step-item"><div class="step-num">2</div><div class="step-content"><h4>Pilih voucher</h4><p>Klik tombol tukar pada voucher yang diinginkan.</p></div></div>
+                <div class="step-item"><div class="step-num">3</div><div class="step-content"><h4>Dapatkan kode & QR</h4><p>Kode unik akan muncul, tunjukkan ke petugas kantin.</p></div></div>
+            </div>
+            <!-- GAMBAR DI BAWAH PANDUAN PENUKARAN (SESUAI PERMINTAAN) -->
+            <div class="img-wrapper">
+                <img src="https://lh3.googleusercontent.com/d/1sBxe4NlsXlW7BhsiO0oAvpIOZ71z6U7D" 
+                     alt="Bebas Plastik & Sedotan - Pak Hari SMP 2 Klaten" 
+                     class="tutorial-img"
+                     onerror="this.onerror=null; this.src='https://placehold.co/400x300/27A85A/white?text=EcoBOTREC+Voucher'">
+                <div class="img-caption">✨ Tukarkan di Kantin ✨ - EcoBOTREC System - Bebas Plastik & Sedotan</div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- VOUCHER POPUP -->
+<div class="voucher-popup" id="voucherPopup">
+    <div class="v-ticket"><div class="success-icon">✓</div><p style="font-weight:700;">VOUCHER BERHASIL</p><h2 class="v-price-big" id="popNominal">Rp 0</h2><div class="v-code-container"><span class="v-code-text" id="popKode">ECO-XXXXX</span></div><div class="v-qr-box" style="margin:0 auto;"><img id="popQR" src="" alt="QR Voucher" width="140"></div><p style="font-size:10px;">Tunjukkan QR/kode ke petugas kantin</p></div><div class="back-home" onclick="closeVoucherPopup()">← Kembali ke Beranda</div>
+</div>
+
+<div class="notification-container" id="notificationContainer"></div>
+
+<!-- FOOTER -->
+<footer class="ecob-footer">
+    <div class="container">
+        <div class="ecob-footer-content">
+            <div><div class="ecob-footer-logo"><svg width="38" height="38" viewBox="0 0 60 60" fill="none"><rect width="60" height="60" rx="14" fill="#22c55e"/><path d="M30 8L36 18H24L30 8Z" fill="white"/><rect x="21" y="18" width="18" height="28" rx="3" fill="white" opacity="0.9"/><path d="M26 22H34V27H26V22Z" fill="#22c55e" opacity="0.5"/><circle cx="30" cy="34" r="3" fill="#22c55e" opacity="0.7"/></svg><span>EcoBotRec</span></div><p class="ecob-footer-desc">Website ecoBOTREC: Penukaran botol plastik anda menjadi sesuatu yang lebih berharga.</p></div>
+            <div><h3 class="ecob-footer-title">Navigasi</h3><ul class="ecob-footer-links"><li><a href="index.html">Beranda</a></li><li><a href="about.html">Tentang Kami</a></li><li><a href="leaderboard.html">Leaderboard</a></li><li><a href="EBOOK.html">Koleksi Ebook</a></li><li><a href="voucher.html">Voucher</a></li><li><a href="account.html">Akun Saya</a></li></ul></div>
+            <div><h3 class="ecob-footer-title">Kontak</h3><ul class="ecob-footer-contact"><li>📧 info@ecobotrec.id</li><li>📞 +62 812-3456-7890</li><li>📍 Gombong, Jawa Tengah</li></ul></div>
+        </div>
+        <div class="ecob-footer-bottom"><p>&copy; 2026 EcoBotRec. Menjaga Bumi Lebih Hijau.</p></div>
+    </div>
+</footer>
+
+<script>
+    AOS.init({ duration: 800, once: true });
+    const firebaseConfig = { databaseURL: "https://ecobottle-463c3-default-rtdb.asia-southeast1.firebasedatabase.app" };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const COINS_PER_BOTTLE = 5;
+    const validUsers = [
+        { name: "Raffa", nisn: "0121997451", uid: "0174346A" },
+        { name: "Warren", nisn: "0128091655", uid: "F1F53F6A" },
+        { name: "Lodra", nisn: "0117048051", uid: "9185306A" },
+        { name: "Nazifa", nisn: "0117081155", uid: "9172486A" },
+        { name: "Damai", nisn: "0116361248", uid: "519F396A" },
+        { name: "Pak Heri", nisn: "H3R1GURU", uid: "F3B14B16" },
+        { name: "Resvan", nisn: "RESV4N01", uid: "E0EDA65F" }
+    ];
+    const voucherList = [
+        { id: 'v1', price: 100, label: 'Rp 2.000' },
+        { id: 'v2', price: 200, label: 'Rp 4.000' },
+        { id: 'v3', price: 400, label: 'Rp 10.000' },
+        { id: 'v4', price: 1000, label: 'Rp 20.000' }
+    ];
+    let currentUser = null, userBottles = 0, userCoins = 0, bottlesRef = null;
+
+    function showNotification(msg, isErr = false) {
+        const cont = document.getElementById('notificationContainer');
+        const div = document.createElement('div');
+        div.className = `notification ${isErr ? 'error' : ''}`;
+        div.innerHTML = `${isErr ? '❌' : '✅'} ${msg}`;
+        cont.appendChild(div);
+        setTimeout(() => div.remove(), 4000);
+    }
+
+    // Login ditangani oleh login.html - fungsi-fungsi ini tidak lagi digunakan
+    function renderDemoAccounts() {}
+    function handleLogin() {}
+
+    function loadUserData() {
+        if(!currentUser) return;
+        bottlesRef = db.ref(`users/${currentUser.uid}/total_botol`);
+        bottlesRef.on('value', (snap) => {
+            userBottles = snap.val() || 0;
+            userCoins = userBottles * COINS_PER_BOTTLE;
+            document.getElementById('userPoints').innerText = userCoins;
+            renderVouchers();
+        });
+    }
+
+    function renderVouchers() {
+        const grid = document.getElementById('voucherGrid');
+        if(!grid) return;
+        grid.innerHTML = voucherList.map(v => `<div class="voucher-card"><div class="voucher-price">${v.label}</div><div class="voucher-points">🪙 ${v.price} Poin</div><button class="exchange-btn" data-price="${v.price}" data-label="${v.label}" ${userCoins < v.price ? 'disabled' : ''}>${userCoins < v.price ? 'Poin Kurang' : 'Tukarkan Sekarang'}</button></div>`).join('');
+        document.querySelectorAll('.exchange-btn').forEach(btn => {
+            if(!btn.disabled) {
+                btn.addEventListener('click', (e) => {
+                    const price = parseInt(btn.getAttribute('data-price'));
+                    const label = btn.getAttribute('data-label');
+                    exchangeVoucher(price, label);
+                });
+            }
+        });
+    }
+
+    async function exchangeVoucher(cost, label) {
+        if(userCoins < cost) { showNotification('Poin tidak mencukupi!', true); return; }
+        if(!confirm(`Tukar ${label} dengan ${cost} poin?`)) return;
+        const bottlesNeeded = cost / COINS_PER_BOTTLE;
+        const newBottles = userBottles - bottlesNeeded;
+        if(newBottles < 0) return;
+        const counterRef = db.ref('voucher_counter');
+        counterRef.transaction((curr) => (curr === null ? 0 : curr + 1), async (err, committed, snap) => {
+            if(err) { showNotification('Gagal memproses voucher.', true); return; }
+            if(committed) {
+                let idx = snap.val();
+                const voucherCodes = Array.from({length:200}, (_,i)=>`RAP-${String(i+1).padStart(5,'0')}`);
+                if(idx >= voucherCodes.length) { showNotification('Stok voucher habis.', true); return; }
+                const finalCode = voucherCodes[idx];
+                await bottlesRef.set(newBottles);
+                await db.ref(`transactions/${currentUser.uid}`).push({ type: 'voucher', amount: cost, label, code: finalCode, timestamp: Date.now() });
+                showNotification(`Berhasil menukar ${label}! Kode: ${finalCode}`);
+                document.getElementById('popNominal').innerText = label;
+                document.getElementById('popKode').innerText = finalCode;
+                document.getElementById('popQR').src = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${finalCode}`;
+                document.getElementById('voucherPopup').style.display = 'flex';
+            }
+        });
+    }
+
+    window.closeVoucherPopup = () => { document.getElementById('voucherPopup').style.display = 'none'; };
+
+    function checkAutoLogin() {
+        const saved = localStorage.getItem('ecobottle_user');
+        if(saved) {
+            try {
+                const { name, uid } = JSON.parse(saved);
+                const u = validUsers.find(uu => uu.name === name && uu.uid === uid);
+                if(u) {
+                    currentUser = u;
+                    loadUserData();
+                    renderVouchers();
+                    return;
+                }
+            } catch(e) {}
+        }
+        // Jika data user tidak valid, redirect login
+        window.location.replace('login.html');
+    }
+
+    // Mobile menu
+    (function() {
+        var btn = document.getElementById('ecobHamburger');
+        var menu = document.getElementById('ecobMobileMenu');
+        if(btn && menu) {
+            btn.addEventListener('click', function() {
+                var open = menu.classList.contains('open');
+                if(open) { btn.classList.remove('active'); menu.classList.remove('open'); document.body.style.overflow = ''; }
+                else { btn.classList.add('active'); menu.classList.add('open'); document.body.style.overflow = 'hidden'; }
+            });
+            document.querySelectorAll('.ecob-mobile-link').forEach(link => link.addEventListener('click', () => { btn.classList.remove('active'); menu.classList.remove('open'); document.body.style.overflow = ''; }));
+        }
+    })();
+
+    checkAutoLogin();
+</script>
+</body>
+</html>

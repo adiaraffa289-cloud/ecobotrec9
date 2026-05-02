@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Akun - EcoBotRec</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="responsive.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+<style>
+        /* ========== UNIFIED HEADER & MOBILE MENU ========== */
+        :root {
+            --primary-green: #22c55e;
+            --dark-green: #15803d;
+            --light-green: #f0fdf4;
+            --text-main: #1a1a2e;
+            --text-gray: #64748b;
+            --white: #ffffff;
+            --transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            --grad-nav: linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(240,253,244,0.98) 100%);
+            --grad-footer: linear-gradient(135deg, #166534 0%, #14532d 50%, #0f3b21 100%);
+        }
+        .ecob-header {
+            background: var(--grad-nav);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(34,197,94,0.2);
+            position: fixed;
+            top: 0; width: 100%;
+            z-index: 1000;
+            box-shadow: 0 4px 20px rgba(34,197,94,0.1);
+            transition: var(--transition);
+        }
+        .ecob-header .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        .ecob-header-content {
+            height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .ecob-logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            font-weight: 800;
+            font-size: 1.5rem;
+            background: linear-gradient(135deg, var(--dark-green), var(--primary-green));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .ecob-logo img {
+            width: 42px; height: 42px;
+            border-radius: 12px;
+            object-fit: cover;
+            border: 2px solid rgba(34,197,94,0.3);
+            box-shadow: 0 2px 8px rgba(34,197,94,0.2);
+            flex-shrink: 0;
+        }
+        .ecob-nav {
+            display: flex;
+            gap: 32px;
+        }
+        .ecob-nav-link {
+            text-decoration: none;
+            color: var(--text-main);
+            font-weight: 500;
+            font-size: 0.95rem;
+            transition: var(--transition);
+            position: relative;
+            font-family: 'Poppins', sans-serif;
+        }
+        .ecob-nav-link::after {
+            content: '';
+            position: absolute;
+            bottom: -5px; left: 0;
+            width: 0; height: 2px;
+            background: var(--primary-green);
+            transition: var(--transition);
+        }
+        .ecob-nav-link:hover::after,
+        .ecob-nav-link.active::after { width: 100%; }
+        .ecob-nav-link:hover,
+        .ecob-nav-link.active { color: var(--primary-green); }
+
+        /* Hamburger */
+        .ecob-hamburger {
+            display: none;
+            flex-direction: column;
+            gap: 5px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px;
+            z-index: 1101;
+        }
+        .ecob-hamburger span {
+            display: block;
+            width: 25px; height: 3px;
+            background: #334155;
+            border-radius: 3px;
+            transition: all 0.3s ease;
+        }
+        .ecob-hamburger.active span:nth-child(1) { transform: translateY(8px) rotate(45deg); }
+        .ecob-hamburger.active span:nth-child(2) { opacity: 0; transform: scaleX(0); }
+        .ecob-hamburger.active span:nth-child(3) { transform: translateY(-8px) rotate(-45deg); }
+
+        /* Mobile Menu */
+        .ecob-mobile-menu {
+            position: fixed;
+            top: 0; right: -100%;
+            width: 100%; height: 100%;
+            background: #f8fafc;
+            transition: right 0.35s cubic-bezier(0.4,0,0.2,1);
+            z-index: 1100;
+            overflow-y: auto;
+        }
+        .ecob-mobile-menu.open { right: 0; }
+        .ecob-mobile-menu-content {
+            padding: 100px 20px 40px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .ecob-mobile-link {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            text-decoration: none;
+            color: #334155;
+            font-weight: 500;
+            font-size: 1rem;
+            padding: 16px 20px;
+            border-radius: 16px;
+            background: #ffffff;
+            border: 1px solid #f1f5f9;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+            transition: all 0.25s ease;
+            font-family: 'Poppins', sans-serif;
+        }
+        .ecob-mobile-link:hover {
+            background: #f0fdf4;
+            border-color: rgba(34,197,94,0.2);
+            color: #22c55e;
+        }
+        .ecob-mobile-link.active {
+            background: #22c55e;
+            border-color: #22c55e;
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(34,197,94,0.3);
+        }
+        .ecob-mobile-link svg { width: 24px; height: 24px; flex-shrink: 0; }
+        .ecob-mobile-link:not(.active) svg path,
+        .ecob-mobile-link:not(.active) svg circle,
+        .ecob-mobile-link:not(.active) svg rect { stroke: #64748b; }
+        .ecob-mobile-link.active svg path,
+        .ecob-mobile-link.active svg circle,
+        .ecob-mobile-link.active svg rect { stroke: #ffffff; }
+
+        /* Footer */
+        .ecob-footer {
+            background: var(--grad-footer);
+            padding: 80px 0 40px;
+            color: rgba(255,255,255,0.85);
+            border-top: 1px solid rgba(255,255,255,0.1);
+            margin-top: 60px;
+            font-family: 'Poppins', sans-serif;
+        }
+        .ecob-footer .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        .ecob-footer-content {
+            display: grid;
+            grid-template-columns: 1.5fr 1fr 1fr;
+            gap: 60px;
+            margin-bottom: 60px;
+        }
+        .ecob-footer-logo {
+            color: var(--white);
+            font-size: 1.6rem;
+            font-weight: 800;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .ecob-footer-logo img {
+            width: 42px; height: 42px;
+            border-radius: 12px;
+            object-fit: cover;
+            border: 2px solid rgba(255,255,255,0.2);
+        }
+        .ecob-footer-logo span {
+            background: linear-gradient(135deg, #bbf7d0, #86efac);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .ecob-footer-desc { font-size: 0.9rem; line-height: 1.7; margin-bottom: 24px; }
+        .ecob-footer-social { display: flex; gap: 12px; }
+        .ecob-social-link {
+            width: 40px; height: 40px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            transition: 0.3s;
+            text-decoration: none; color: white;
+        }
+        .ecob-social-link:hover { background: var(--primary-green); transform: translateY(-3px); }
+        .ecob-footer-title {
+            color: var(--white);
+            font-weight: 700;
+            margin-bottom: 24px;
+            font-size: 1.1rem;
+            position: relative;
+            display: inline-block;
+        }
+        .ecob-footer-title::after {
+            content: '';
+            position: absolute;
+            bottom: -8px; left: 0;
+            width: 40px; height: 3px;
+            background: var(--primary-green);
+            border-radius: 3px;
+        }
+        .ecob-footer-links { list-style: none; }
+        .ecob-footer-links li { margin-bottom: 12px; }
+        .ecob-footer-links a {
+            color: rgba(255,255,255,0.8);
+            text-decoration: none;
+            transition: 0.3s;
+            display: flex; align-items: center; gap: 8px;
+            font-size: 0.9rem;
+        }
+        .ecob-footer-links a:hover { color: var(--primary-green); padding-left: 6px; }
+        .ecob-footer-contact { list-style: none; }
+        .ecob-footer-contact li {
+            margin-bottom: 14px;
+            display: flex; align-items: center; gap: 10px;
+            font-size: 0.9rem;
+        }
+        .ecob-footer-bottom {
+            text-align: center;
+            padding-top: 30px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            font-size: 0.85rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .ecob-footer-bottom-links { display: flex; gap: 20px; }
+        .ecob-footer-bottom-links a {
+            color: rgba(255,255,255,0.6);
+            text-decoration: none;
+            font-size: 0.82rem;
+            transition: 0.3s;
+        }
+        .ecob-footer-bottom-links a:hover { color: var(--primary-green); }
+
+        @media (max-width: 992px) {
+            .ecob-nav { display: none; }
+            .ecob-hamburger { display: flex; }
+            .ecob-footer-content { grid-template-columns: 1fr; gap: 40px; }
+            .ecob-footer-bottom { flex-direction: column; text-align: center; }
+        }
+        @media (max-width: 576px) {
+            .ecob-logo { font-size: 1.2rem; }
+            .ecob-logo img { width: 36px; height: 36px; }
+        }
+    </style>
+</head>
+<body>
+    <!-- ===== UNIFIED HEADER ===== -->
+    <header class="ecob-header">
+        <div class="container">
+            <div class="ecob-header-content">
+                <a href="index.html" class="ecob-logo">
+                    <svg width="38" height="38" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;">
+                        <rect width="60" height="60" rx="14" fill="#22c55e"/>
+                        <path d="M30 8L36 18H24L30 8Z" fill="white"/>
+                        <rect x="21" y="18" width="18" height="28" rx="3" fill="white" opacity="0.9"/>
+                        <path d="M26 22H34V27H26V22Z" fill="#22c55e" opacity="0.5"/>
+                        <circle cx="30" cy="34" r="3" fill="#22c55e" opacity="0.7"/>
+                    </svg>
+                    <span>EcoBotRec</span>
+                </a>
+                <nav class="ecob-nav">
+                    <a href="index.html" class="ecob-nav-link">Beranda</a>
+                    <a href="about.html" class="ecob-nav-link">Tentang</a>
+                    <a href="leaderboard.html" class="ecob-nav-link">Leaderboard</a>
+                    <a href="EBOOK.html" class="ecob-nav-link">Koleksi Ebook</a>
+                    <a href="voucher.html" class="ecob-nav-link">Voucher</a>
+                    <a href="account.html" class="ecob-nav-link active">Akun</a>
+                </nav>
+                <button class="ecob-hamburger" id="ecobHamburger">
+                    <span></span><span></span><span></span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ===== MOBILE MENU ===== -->
+    <div class="ecob-mobile-menu" id="ecobMobileMenu">
+        <div class="ecob-mobile-menu-content">
+        <a href="index.html" class="ecob-mobile-link">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M3 9L12 2L21 9V20C21 20.5304 20.7893 21.0391 20.4142 21.4142C20.0391 21.7893 19.5304 22 19 22H5C4.46957 22 3.96086 21.7893 3.58579 21.4142C3.21071 21.0391 3 20.5304 3 20V9Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Beranda</span>
+        </a>
+        <a href="about.html" class="ecob-mobile-link">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><path d="M12 16V12M12 8H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <span>Tentang</span>
+        </a>
+        <a href="leaderboard.html" class="ecob-mobile-link">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Leaderboard</span>
+        </a>
+        <a href="EBOOK.html" class="ecob-mobile-link">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M4 19.5C4 18.837 4.26339 18.2011 4.73223 17.7322C5.20107 17.2634 5.83696 17 6.5 17H20" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M6.5 2H20V22H6.5C5.83696 22 5.20107 21.7366 4.73223 21.2678C4.26339 20.7989 4 20.163 4 19.5V4.5C4 3.83696 4.26339 3.20107 4.73223 2.73223C5.20107 2.26339 5.83696 2 6.5 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Koleksi Ebook</span>
+        </a>
+        <a href="voucher.html" class="ecob-mobile-link"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="2" y="6" width="20" height="12" rx="3" stroke="currentColor" stroke-width="2"/><path d="M16 6V5C16 3.89543 15.1046 3 14 3H10C8.89543 3 8 3.89543 8 5V6" stroke="currentColor" stroke-width="2"/><path d="M16 12H16.01M8 12H8.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Voucher</span></a>
+        <a href="account.html" class="ecob-mobile-link active">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M20 21V19C20 17.9391 19.5786 16.9217 18.8284 16.1716C18.0783 15.4214 17.0609 15 16 15H8C6.93913 15 5.92172 15.4214 5.17157 16.1716C4.42143 16.9217 4 17.9391 4 19V21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Akun</span>
+        </a>
+        </div>
+    </div>
+
+    
+    <!-- Account Section -->
+    <section class="account-section">
+        <div class="container">
+            <!-- Profile Card -->
+            <div class="profile-card">
+                <div class="profile-header">
+                    <div class="profile-avatar">
+                        <div class="avatar-circle large">
+                            <span id="userInitial">U</span>
+                        </div>
+                        <div class="avatar-status"></div>
+                    </div>
+                    <div class="profile-info">
+                        <h1 id="userName">Pengguna</h1>
+                        <p class="profile-nisn">NISN: <span id="userNISN">-</span></p>
+                        <div class="profile-badges">
+                            <span class="badge badge-eco">Eco Warrior</span>
+                            <span class="badge badge-active">Aktif</span>
+                        </div>
+                    </div>
+                    <button class="btn-logout" id="logoutBtn">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M7 19H3C2.46957 19 1.96086 18.7893 1.58579 18.4142C1.21071 18.0391 1 17.5304 1 17V3C1 2.46957 1.21071 1.96086 1.58579 1.58579C1.96086 1.21071 2.46957 1 3 1H7M14 15L19 10M19 10L14 5M19 10H7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        Keluar
+                    </button>
+                </div>
+                
+                <div class="profile-stats">
+                    <div class="stat-card">
+                        <div class="stat-icon green">
+                            <svg width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M15 5L18 15L28 17L20 25L22 35L15 30L8 35L10 25L2 17L12 15L15 5Z" fill="#22c55e"/>
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="totalPoints">0</div>
+                            <div class="stat-label">Total Poin</div>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon blue">
+                            <svg width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M15 2.5L17.5 10H10L15 2.5Z" fill="#3b82f6"/>
+                                <rect x="10" y="10" width="10" height="15" rx="2" fill="#3b82f6" opacity="0.8"/>
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="totalBottles">0</div>
+                            <div class="stat-label">Botol Didaur</div>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon purple">
+                            <svg width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <rect x="5" y="5" width="20" height="20" rx="2" stroke="#8b5cf6" stroke-width="2" fill="none"/>
+                                <path d="M10 10H20V15H10V10Z" fill="#8b5cf6" opacity="0.5"/>
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="ebooksRedeemed">0</div>
+                            <div class="stat-label">Ebook Ditukar</div>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon orange">
+                            <svg width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M15 7L17.5 14.5L25 17L17.5 19.5L15 27L12.5 19.5L5 17L12.5 14.5L15 7Z" fill="#f97316"/>
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="userRank">-</div>
+                            <div class="stat-label">Peringkat</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Quick Actions -->
+            <div class="quick-actions">
+                <h2>Aksi Cepat</h2>
+                <div class="actions-grid">
+                    <a href="EBOOK.html" class="action-btn">
+                        <div class="action-icon">
+                            <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="20" cy="20" r="18" fill="#3b82f6" opacity="0.1"/>
+                                <rect x="12" y="10" width="16" height="20" rx="2" stroke="#3b82f6" stroke-width="2"/>
+                                <path d="M16 15H24M16 19H24M16 23H20" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                        <span>Tukar Ebook</span>
+                        <p>100 poin per ebook</p>
+                    </a>
+                    
+                    <a href="leaderboard.html" class="action-btn">
+                        <div class="action-icon">
+                            <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="20" cy="20" r="18" fill="#f97316" opacity="0.1"/>
+                                <path d="M20 10L23 18L31 20L25 26L26.5 34L20 30L13.5 34L15 26L9 20L17 18L20 10Z" fill="#f97316"/>
+                            </svg>
+                        </div>
+                        <span>Lihat Peringkat</span>
+                        <p>Kompetisi seru</p>
+                    </a>
+                    
+                    <a href="about.html" class="action-btn">
+                        <div class="action-icon">
+                            <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="20" cy="20" r="18" fill="#8b5cf6" opacity="0.1"/>
+                                <circle cx="20" cy="20" r="14" stroke="#8b5cf6" stroke-width="2"/>
+                                <path d="M20 24V20M20 16H20.02" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                        <span>Pelajari Lebih</span>
+                        <p>Tentang EcoBottle</p>
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Activity History -->
+            <div class="activity-section">
+                <div class="activity-header">
+                    <h2>Riwayat Aktivitas</h2>
+                    <button class="btn-filter" id="filterBtn">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M4 6H16M6 10H14M8 14H12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                        Filter
+                    </button>
+                </div>
+                <div class="activity-list" id="activityList">
+                    <!-- Akan diisi oleh JavaScript -->
+                </div>
+            </div>
+            
+            <!-- Progress to Next Ebook -->
+            <div class="progress-card">
+                <h3>Progress ke Ebook Berikutnya</h3>
+                <div style="margin-bottom:16px;">
+                    <label style="font-weight:600;font-size:0.88rem;color:var(--text-gray);display:block;margin-bottom:8px;">Pilih Ebook Target:</label>
+                    <select id="ebookTargetSelect" style="width:100%;padding:11px 14px;border:2px solid #e2e8f0;border-radius:12px;font-family:'Poppins',sans-serif;font-size:0.88rem;color:#334155;background:#f8fafc;cursor:pointer;outline:none;">
+                        <option value="" data-price="100">-- Pilih Ebook --</option>
+                        <option value="b1"  data-price="50">Soal TKA MTK Paket C (Tanpa Pembahasan) - 50 poin</option>
+                        <option value="b2"  data-price="100">Atomic Habits - 100 poin</option>
+                        <option value="b3"  data-price="100">-Bumi Series- Bumi - 100 poin</option>
+                        <option value="b4"  data-price="100">-Bumi Series- Komet - 100 poin</option>
+                        <option value="b5"  data-price="100">-Bumi Series- Bintang - 100 poin</option>
+                        <option value="b6"  data-price="100">-Bumi Series- Matahari - 100 poin</option>
+                        <option value="b7"  data-price="100">-Bumi Series- Komet Minor - 100 poin</option>
+                        <option value="b8"  data-price="100">-Bumi Series- Si Putih - 100 poin</option>
+                        <option value="b9"  data-price="100">Laut Bercerita - 100 poin</option>
+                        <option value="b10" data-price="100">Filosofi Teras - 100 poin</option>
+                        <option value="b11" data-price="100">Lukacita - 100 poin</option>
+                        <option value="b12" data-price="100">Legendary (Series Caraval) - 100 poin</option>
+                        <option value="b13" data-price="100">Si Anak Badai - 100 poin</option>
+                        <option value="b14" data-price="100">Soal TKA MTK Paket A - 100 poin</option>
+                        <option value="b15" data-price="100">SagaraS - 100 poin</option>
+                        <option value="b16" data-price="100">Seorang Pria yang Melalui Duka dengan Mencuci Piring - 100 poin</option>
+                        <option value="b17" data-price="100">Surat Untuk Jenaka - 100 poin</option>
+                        <option value="b18" data-price="100">Tentang Kamu - 100 poin</option>
+                        <option value="b19" data-price="150">Rasa - 150 poin</option>
+                        <option value="b20" data-price="150">Soal TKA MTK Paket B - 150 poin</option>
+                        <option value="b21" data-price="150">Materi &amp; Soal OSN IPS SMP - 150 poin</option>
+                    </select>
+                </div>
+                <div class="progress-bar-container">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div class="progress-label">
+                        <span id="currentProgress">0</span> / <span id="targetPrice">100</span> poin
+                    </div>
+                </div>
+                <p class="progress-text">
+                    Kamu butuh <strong id="pointsNeeded">100</strong> poin lagi untuk menukar ebook ini!
+                </p>
+                <div class="progress-actions">
+                    <button class="btn btn-primary" id="recycleMoreBtn">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M10 2.5L12.5 7.5H7.5L10 2.5Z" fill="white"/>
+                            <rect x="7.5" y="7.5" width="5" height="10" rx="1" fill="white" opacity="0.8"/>
+                        </svg>
+                        Daur Ulang Lebih Banyak
+                    </button>
+                    <a href="EBOOK.html" class="btn btn-secondary">
+                        Lihat Ebook
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <div class="notification-container"></div>
+    
+    <script>
+        // ======================= KONFIGURASI FIREBASE =======================
+        const firebaseConfig = {
+            databaseURL: "https://ecobottle-463c3-default-rtdb.asia-southeast1.firebasedatabase.app"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const COINS_PER_BOTTLE = 5;
+
+        // Data pengguna yang valid
+        const validUsers = [
+            { name: "Raffa", nisn: "0121997451", uid: "0174346A" },
+            { name: "Warren", nisn: "0128091655", uid: "F1F53F6A" },
+            { name: "Lodra", nisn: "0117048051", uid: "9185306A" },
+            { name: "Nazifa", nisn: "0117081155", uid: "9172486A" },
+            { name: "Damai", nisn: "0116361248", uid: "519F396A" },
+            { name: "Pak Heri", nisn: "H3R1GURU", uid: "F3B14B16" },
+            { name: "Resvan", nisn: "VEPANGANTENG", uid: "E0EDA65F" },
+            { name: "Afif", nisn: "0128553009", uid: "B1A14B6A" },
+            { name: "Dinda", nisn: "0116508528", uid: "E159396A" },
+            { name: "Zhafran", nisn: "3115978148", uid: "A1D0456A" },
+            { name: "Alaric", nisn: "0121754887", uid: "41A4486A " },
+            { name: "Ezzar", nisn: "0126158913", uid: "5FD45186" },
+            { name: "Sesya", nisn: "0116877380", uid: "E1CC346A" },
+            { name: "Callista", nisn: "0119539664", uid: "81A6576A" },
+            { name: "Fadhil", nisn: "3117389810", uid: "91B0566A" },
+            { name: "Arvin", nisn: "0123889416", uid: "6154396A" },
+            { name: "Darrel", nisn: "0117996928", uid: "7F895D86" },
+            { name: "Michel", nisn: "0128979076", uid: "51C0466A" },
+            { name: "Ananto", nisn: "0123933364", uid: "F182316A" },
+            { name: "Revandira", nisn: "0018881054", uid: "B155426A" },
+            { name: "Pak Mulyadi", nisn: "KEPALA SEKOLAH", uid: "61124C6A" },
+            { name: "Pak Prihatin", nisn: "GURU", uid: "A19D376A" },
+            { name: "Pak Yohanes", nisn: "GURU", uid: "0F7B5986" },
+            { name: "Pak Fahiq", nisn: "GURU", uid: "BF014A86" },
+            { name: "Bu Dwi", nisn: "Guru", uid: "E197366A" }
+        ];
+
+        let currentUser = null;
+        let userBottles = 0;
+        let currentPoints = 0;
+        let ownedBooksCount = 0;
+        let userBottlesRef = null;
+        let ownedBooksRef = null;
+        let previousOwnedBooks = new Set();
+
+        // Ambil data user dari localStorage
+        function getCurrentUserFromStorage() {
+            const saved = localStorage.getItem('ecobottle_user');
+            if (saved) {
+                try {
+                    const { name, uid } = JSON.parse(saved);
+                    const user = validUsers.find(u => u.name === name && u.uid === uid);
+                    if (user) {
+                        return user;
+                    }
+                } catch(e) {}
+            }
+            return null;
+        }
+
+        // Format waktu yang mudah dibaca
+        function formatTime(timestamp) {
+            const date = new Date(timestamp);
+            const now = new Date();
+            const diff = now - date;
+            
+            const minutes = Math.floor(diff / 60000);
+            const hours = Math.floor(diff / 3600000);
+            const days = Math.floor(diff / 86400000);
+            
+            if (minutes < 1) return 'Baru saja';
+            if (minutes < 60) return `${minutes} menit yang lalu`;
+            if (hours < 24) return `${hours} jam yang lalu`;
+            if (days < 7) return `${days} hari yang lalu`;
+            
+            return date.toLocaleDateString('id-ID', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        // Tambah aktivitas ke Firebase
+        async function addActivity(uid, type, title, description, metadata = {}) {
+            const activityRef = db.ref(`activities/${uid}`).push();
+            await activityRef.set({
+                type: type,
+                title: title,
+                description: description,
+                timestamp: firebase.database.ServerValue.TIMESTAMP,
+                metadata: metadata
+            });
+        }
+
+        // Load dan tampilkan riwayat aktivitas
+        function loadActivities() {
+            if (!currentUser) return;
+            
+            const activityList = document.getElementById('activityList');
+            if (!activityList) return;
+            
+            const activitiesRef = db.ref(`activities/${currentUser.uid}`).orderByChild('timestamp').limitToLast(50);
+            
+            activitiesRef.on('value', (snapshot) => {
+                const activities = [];
+                snapshot.forEach((childSnapshot) => {
+                    activities.push({
+                        id: childSnapshot.key,
+                        ...childSnapshot.val()
+                    });
+                });
+                
+                // Urutkan dari yang terbaru ke terlama
+                activities.reverse();
+                
+                if (activities.length === 0) {
+                    activityList.innerHTML = `
+                        <div style="text-align: center; padding: 2rem; color: var(--text-gray);">
+                            <p>Belum ada aktivitas</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                activityList.innerHTML = activities.map(activity => `
+                    <div class="activity-item">
+                        <div class="activity-icon">
+                            ${getActivityIcon(activity.type)}
+                        </div>
+                        <div class="activity-details">
+                            <h4>${escapeHtml(activity.title)}</h4>
+                            <p>${escapeHtml(activity.description)}</p>
+                        </div>
+                        <div class="activity-time">${formatTime(activity.timestamp)}</div>
+                    </div>
+                `).join('');
+            });
+        }
+        
+        function getActivityIcon(type) {
+            const icons = {
+                'login': '🔐',
+                'logout': '👋',
+                'add_bottle': '♻️',
+                'redeem_ebook': '📚'
+            };
+            return icons[type] || '📌';
+        }
+        
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/[&<>]/g, function(m) {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                return m;
+            });
+        }
+
+        // Load data botol dari Firebase dan catat aktivitas penambahan botol
+        function loadUserBottles() {
+            if (!currentUser) return;
+            let previousBottles = userBottles;
+            
+            userBottlesRef = db.ref(`users/${currentUser.uid}/total_botol`);
+            userBottlesRef.on('value', (snapshot) => {
+                const newBottles = snapshot.val() || 0;
+                const oldBottles = userBottles;
+                userBottles = newBottles;
+                currentPoints = userBottles * COINS_PER_BOTTLE;
+                
+                // Deteksi penambahan botol (jika ada kenaikan)
+                if (newBottles > oldBottles && oldBottles !== 0) {
+                    const added = newBottles - oldBottles;
+                    addActivity(currentUser.uid, 'add_bottle', 'Menambahkan Botol', `${added} botol plastik berhasil didaur ulang (+${added * COINS_PER_BOTTLE} poin)`, { amount: added });
+                }
+                
+                // Update tampilan
+                const totalPointsEl = document.getElementById('totalPoints');
+                if (totalPointsEl) totalPointsEl.innerText = currentPoints;
+                
+                const totalBottlesEl = document.getElementById('totalBottles');
+                if (totalBottlesEl) totalBottlesEl.innerText = userBottles;
+                
+                updateProgressBar(currentPoints);
+                const currentProgressEl = document.getElementById('currentProgress');
+                if (currentProgressEl) refreshProgressUI(); if(false) currentProgressEl.innerText = 0; // replaced by refreshProgressUI
+                
+                const pointsNeededEl = document.getElementById('pointsNeeded');
+                if (pointsNeededEl) {
+                    const needed = Math.max(0, 100 - (currentPoints % 100));
+                    pointsNeededEl.innerText = needed;
+                }
+                
+                calculateUserRank();
+            });
+        }
+
+        // Load jumlah ebook yang dimiliki dan deteksi pembelian baru
+        function loadOwnedBooksCount() {
+            if (!currentUser) return;
+            
+            ownedBooksRef = db.ref(`users/${currentUser.uid}/ownedBooks`);
+            ownedBooksRef.on('value', (snapshot) => {
+                const data = snapshot.val();
+                const currentOwned = new Set();
+                if (data && typeof data === 'object') {
+                    Object.keys(data).forEach(bookId => {
+                        currentOwned.add(bookId);
+                    });
+                }
+                ownedBooksCount = currentOwned.size;
+                // Reset progress if selected ebook was acquired
+                var selEl = document.getElementById('ebookTargetSelect');
+                if (selEl && selEl.value && currentOwned.has(selEl.value)) {
+                    selEl.value = '';
+                    refreshProgressUI();
+                }
+                
+                // Deteksi ebook baru yang dibeli
+                if (previousOwnedBooks.size > 0) {
+                    const newBooks = [];
+                    currentOwned.forEach(bookId => {
+                        if (!previousOwnedBooks.has(bookId)) {
+                            newBooks.push(bookId);
+                        }
+                    });
+                    
+                    if (newBooks.length > 0) {
+                        addActivity(currentUser.uid, 'redeem_ebook', 'Menukar Ebook', `${newBooks.length} ebook berhasil ditukar dengan poin`, { books: newBooks });
+                    }
+                }
+                previousOwnedBooks = currentOwned;
+                
+                // Update tampilan Ebook Ditukar
+                const ebooksRedeemedEl = document.getElementById('ebooksRedeemed');
+                if (ebooksRedeemedEl) ebooksRedeemedEl.innerText = ownedBooksCount;
+            });
+        }
+
+        // Update progress bar (dropdown-aware)
+        function updateProgressBar(points) {
+            currentPoints = points;
+            refreshProgressUI();
+            const progressFill = document.getElementById('progressFill');
+            if (!progressFill) return;
+        }
+
+        // Update user profile info
+        function updateUserProfile() {
+            if (!currentUser) return;
+            const userNameEl = document.getElementById('userName');
+            const userNISNEl = document.getElementById('userNISN');
+            const userInitialEl = document.getElementById('userInitial');
+            
+            if (userNameEl) userNameEl.innerText = currentUser.name;
+            if (userNISNEl) userNISNEl.innerText = currentUser.nisn;
+            if (userInitialEl) userInitialEl.innerText = currentUser.name.charAt(0).toUpperCase();
+        }
+
+        // Hitung peringkat pengguna
+        async function calculateUserRank() {
+            if (!currentUser) return;
+            try {
+                const usersSnapshot = await db.ref('users').once('value');
+                const users = [];
+                
+                usersSnapshot.forEach((childSnapshot) => {
+                    const data = childSnapshot.val();
+                    const uid = childSnapshot.key;
+                    const totalBotol = data.total_botol || 0;
+                    const userInfo = validUsers.find(u => u.uid === uid);
+                    const name = userInfo ? userInfo.name : uid;
+                    
+                    users.push({
+                        uid: uid,
+                        name: name,
+                        total_botol: totalBotol,
+                        points: totalBotol * COINS_PER_BOTTLE
+                    });
+                });
+                
+                users.sort((a, b) => b.total_botol - a.total_botol);
+                const rank = users.findIndex(u => u.uid === currentUser.uid) + 1;
+                const rankEl = document.getElementById('userRank');
+                if (rankEl) rankEl.innerText = rank || '-';
+                
+            } catch (error) {
+                console.error('Error calculating rank:', error);
+                const rankEl = document.getElementById('userRank');
+                if (rankEl) rankEl.innerText = '-';
+            }
+        }
+
+        // Catat aktivitas login saat halaman dimuat
+        async function recordLogin() {
+            if (!currentUser) return;
+            await addActivity(currentUser.uid, 'login', 'Login ke Sistem', `Berhasil masuk ke akun EcoBottle`);
+        }
+
+        // Fungsi logout
+        async function logout() {
+            if (currentUser) {
+                await addActivity(currentUser.uid, 'logout', 'Logout dari Sistem', `Telah keluar dari akun EcoBottle`);
+            }
+            if (userBottlesRef) userBottlesRef.off();
+            if (ownedBooksRef) ownedBooksRef.off();
+            localStorage.removeItem('ecobottle_user');
+            window.location.href = 'login.html';
+        }
+
+        // Event listener untuk tombol logout
+        const logoutBtn = document.getElementById('logoutBtn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', () => {
+                if (confirm('Apakah Anda yakin ingin keluar?')) {
+                    logout();
+                }
+            });
+        }
+
+        // Event listener untuk tombol Daur Ulang Lebih Banyak (redirect ke halaman utama)
+        const recycleMoreBtn = document.getElementById('recycleMoreBtn');
+        if (recycleMoreBtn) {
+            recycleMoreBtn.addEventListener('click', () => {
+                window.location.href = 'index.html';
+            });
+        }
+
+        // Mobile Menu Functionality
+        const hamburger = document.getElementById('hamburger');
+        const mobileMenu = document.getElementById('mobileMenu');
+
+        function openMobileMenu() {
+            mobileMenu.classList.add('open');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeMobileMenu() {
+            mobileMenu.classList.remove('open');
+            document.body.style.overflow = '';
+        }
+
+        if (hamburger) {
+            hamburger.addEventListener('click', openMobileMenu);
+        }
+
+        document.querySelectorAll('.mobile-link').forEach(link => {
+            link.addEventListener('click', closeMobileMenu);
+        });
+
+        document.addEventListener('click', function(event) {
+            if (mobileMenu && hamburger && !mobileMenu.contains(event.target) && !hamburger.contains(event.target) && mobileMenu.classList.contains('open')) {
+                closeMobileMenu();
+            }
+        });
+
+        // Inisialisasi halaman
+        async function init() {
+            currentUser = getCurrentUserFromStorage();
+            if (!currentUser) {
+                window.location.href = 'login.html';
+                return;
+            }
+            updateUserProfile();
+            await recordLogin(); // Catat aktivitas login saat halaman dimuat
+            loadUserBottles();
+            loadOwnedBooksCount();
+            loadActivities();
+        }
+
+        init();
+    </script>
+    <!-- ===== UNIFIED FOOTER ===== -->
+    <footer class="ecob-footer">
+        <div class="container">
+            <div class="ecob-footer-content">
+                <div>
+                    <div class="ecob-footer-logo">
+                        <svg width="38" height="38" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;">
+                            <rect width="60" height="60" rx="14" fill="#22c55e"/>
+                            <path d="M30 8L36 18H24L30 8Z" fill="white"/>
+                            <rect x="21" y="18" width="18" height="28" rx="3" fill="white" opacity="0.9"/>
+                            <path d="M26 22H34V27H26V22Z" fill="#22c55e" opacity="0.5"/>
+                            <circle cx="30" cy="34" r="3" fill="#22c55e" opacity="0.7"/>
+                        </svg>
+                        <span>EcoBotRec</span>
+                    </div>
+                    <p class="ecob-footer-desc">Website EcoBotRec: Penukaran botol plastik anda menjadi sesuatu yang lebih berharga. Bersama kita jaga bumi untuk generasi mendatang.</p>
+                    <div class="ecob-footer-social">
+                        <a href="#" class="ecob-social-link" aria-label="Facebook">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M18 2H15C13.6739 2 12.4021 2.52678 11.4645 3.46447C10.5268 4.40215 10 5.67392 10 7V10H7V14H10V22H14V14H17L18 10H14V7C14 6.73478 14.1054 6.48043 14.2929 6.29289C14.4804 6.10536 14.7348 6 15 6H18V2Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </a>
+                        <a href="#" class="ecob-social-link" aria-label="Instagram">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="2" y="2" width="20" height="20" rx="5" stroke="white" stroke-width="2"/><circle cx="12" cy="12" r="4" stroke="white" stroke-width="2"/><circle cx="17.5" cy="6.5" r="1.5" fill="white"/></svg>
+                        </a>
+                        <a href="#" class="ecob-social-link" aria-label="Twitter">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M23 3C22.0424 3.67548 20.9821 4.19211 19.86 4.53C19.2577 3.83751 18.4573 3.34669 17.567 3.12393C16.6767 2.90116 15.7395 2.95718 14.8821 3.28445C14.0247 3.61173 13.2884 4.1944 12.773 4.95372C12.2575 5.71303 11.9877 6.61234 12 7.53V8.53C10.2426 8.57557 8.50127 8.18581 6.93101 7.39545C5.36074 6.60508 4.01032 5.43864 3 4C3 4 -1 13 8 17C5.94053 18.398 3.48716 19.0989 1 19C10 24 21 19 21 7.5C20.9991 7.22145 20.9723 6.94359 20.92 6.67C21.9406 5.66349 22.6608 4.39271 23 3Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </a>
+                    </div>
+                </div>
+                <div>
+                    <h3 class="ecob-footer-title">Navigasi</h3>
+                    <ul class="ecob-footer-links">
+                        <li><a href="index.html">Beranda</a></li>
+                        <li><a href="about.html">Tentang Kami</a></li>
+                        <li><a href="leaderboard.html">Leaderboard</a></li>
+                        <li><a href="EBOOK.html">Koleksi Ebook</a></li>
+                        <li><a href="voucher.html">Voucher</a></li>
+                        <li><a href="account.html">Akun Saya</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h3 class="ecob-footer-title">Kontak</h3>
+                    <ul class="ecob-footer-contact">
+                        <li>
+                            <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M2.5 6.66667L10 11.6667L17.5 6.66667M3.33333 15H16.6667C17.5871 15 18.3333 14.2538 18.3333 13.3333V6.66667C18.3333 5.74619 17.5871 5 16.6667 5H3.33333C2.41286 5 1.66667 5.74619 1.66667 6.66667V13.3333C1.66667 14.2538 2.41286 15 3.33333 15Z" stroke="#22c55e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            <span>ecobottrecycle@gmail.com</span>
+                        </li>
+                        <li>
+                            <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M2.5 5.83333C2.5 14.1667 5.83333 17.5 14.1667 17.5C14.626 17.5 15 17.126 15 16.6667V14.3333C15 13.874 14.626 13.5 14.1667 13.5C13.7074 13.5 13.3333 13.126 13.3333 12.6667V12.5C13.3333 12.0407 13.7074 11.6667 14.1667 11.6667C14.626 11.6667 15 11.2927 15 10.8333V8.33333C15 7.87405 14.626 7.5 14.1667 7.5H2.5V5.83333Z" stroke="#22c55e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            <span>+62 812-3456-7890</span>
+                        </li>
+                        <li>
+                            <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M10 10.8333C11.3807 10.8333 12.5 9.71405 12.5 8.33333C12.5 6.95262 11.3807 5.83333 10 5.83333C8.61929 5.83333 7.5 6.95262 7.5 8.33333C7.5 9.71405 8.61929 10.8333 10 10.8333Z" stroke="#22c55e" stroke-width="1.5"/><path d="M10 1.66667C8.23189 1.66667 6.53619 2.36905 5.28595 3.61929C4.03571 4.86953 3.33333 6.56522 3.33333 8.33333C3.33333 10.5833 4.16667 12.0833 5.83333 14.1667L10 18.3333L14.1667 14.1667C15.8333 12.0833 16.6667 10.5833 16.6667 8.33333C16.6667 6.56522 15.9643 4.86953 14.714 3.61929C13.4638 2.36905 11.7681 1.66667 10 1.66667Z" stroke="#22c55e" stroke-width="1.5"/></svg>
+                            <span>Klaten, Jawa Tengah</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="ecob-footer-bottom">
+                <p>&copy; 2026 EcoBotRec. Menjaga Bumi Lebih Hijau.</p>
+                <div class="ecob-footer-bottom-links">
+                    <a href="#">Kebijakan Privasi</a>
+                    <a href="#">Syarat &amp; Ketentuan</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // ===== DROPDOWN EBOOK TARGET =====
+        function getSelectedBookPrice() {
+            var sel = document.getElementById('ebookTargetSelect');
+            if (!sel) return 100;
+            var opt = sel.options[sel.selectedIndex];
+            return parseInt(opt.getAttribute('data-price')) || 100;
+        }
+
+        function refreshProgressUI() {
+            var tPrice = getSelectedBookPrice();
+            var prog = Math.min((currentPoints / tPrice) * 100, 100);
+            var fill = document.getElementById('progressFill');
+            if (fill) fill.style.width = prog + '%';
+            var cp = document.getElementById('currentProgress');
+            if (cp) cp.innerText = currentPoints;
+            var tp = document.getElementById('targetPrice');
+            if (tp) tp.innerText = tPrice;
+            var pn = document.getElementById('pointsNeeded');
+            if (pn) pn.innerText = Math.max(0, tPrice - currentPoints);
+        }
+
+        var ebookSel = document.getElementById('ebookTargetSelect');
+        if (ebookSel) {
+            ebookSel.addEventListener('change', refreshProgressUI);
+        }
+    </script>
+    <script>
+        // ===== UNIFIED MOBILE MENU =====
+        (function() {
+            var btn = document.getElementById('ecobHamburger');
+            var menu = document.getElementById('ecobMobileMenu');
+            if (!btn || !menu) return;
+            btn.addEventListener('click', function() {
+                var open = menu.classList.contains('open');
+                if (open) {
+                    btn.classList.remove('active');
+                    menu.classList.remove('open');
+                    document.body.style.overflow = '';
+                } else {
+                    btn.classList.add('active');
+                    menu.classList.add('open');
+                    document.body.style.overflow = 'hidden';
+                }
+            });
+            document.querySelectorAll('.ecob-mobile-link').forEach(function(link) {
+                link.addEventListener('click', function() {
+                    btn.classList.remove('active');
+                    menu.classList.remove('open');
+                    document.body.style.overflow = '';
+                });
+            });
+        })();
+    </script>
+
+</body>
+</html>
+ 
